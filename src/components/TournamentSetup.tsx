@@ -1,0 +1,172 @@
+import { useState } from 'react';
+import { Users, LogIn } from 'lucide-react';
+
+interface TournamentSetupProps {
+  onStart: (participants: string[]) => void;
+  onJoin: (tournamentId: string) => void;
+}
+
+export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProps) {
+  const [tab, setTab] = useState<'create' | 'join'>('create');
+  const [numParticipants, setNumParticipants] = useState<2 | 4 | 8>(4);
+  const [names, setNames] = useState<string[]>(Array(4).fill(''));
+  const [joinCode, setJoinCode] = useState('');
+
+  const handleNumChange = (num: 2 | 4 | 8) => {
+    setNumParticipants(num);
+    setNames(Array(num).fill(''));
+  };
+
+  const handleNameChange = (index: number, value: string) => {
+    const newNames = [...names];
+    newNames[index] = value;
+    setNames(newNames);
+  };
+
+  const handleStart = () => {
+    const filledNames = names.filter(name => name.trim() !== '');
+    if (filledNames.length === numParticipants) {
+      onStart(filledNames);
+    }
+  };
+
+  const handleJoin = () => {
+    const code = joinCode.trim();
+    if (code.length > 10) {
+      onJoin(code);
+    }
+  };
+
+  const allNamesFilled = names.every(name => name.trim() !== '');
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-8">
+      <div className="w-full max-w-4xl">
+        {/* Header */}
+        <div className="text-center mb-14">
+          <div className="inline-flex items-center justify-center w-28 h-28 bg-blue-500/20 rounded-full mb-8">
+            <Users className="w-14 h-14 text-blue-400" />
+          </div>
+          <h1 className="text-6xl font-bold text-white mb-4">Torneo de Viajes</h1>
+          <p className="text-2xl text-blue-200">Decide el próximo viaje con tus amigos</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 bg-white/5 p-1.5 rounded-2xl border border-white/10">
+          <button
+            onClick={() => setTab('create')}
+            className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all ${
+              tab === 'create'
+                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            Crear torneo
+          </button>
+          <button
+            onClick={() => setTab('join')}
+            className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all flex items-center justify-center gap-2 ${
+              tab === 'join'
+                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/40'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <LogIn className="w-5 h-5" />
+            Unirme a un torneo
+          </button>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-12 border border-white/10">
+          {tab === 'create' ? (
+            <>
+              <div className="mb-10">
+                <label className="block text-white text-base font-medium mb-5">
+                  Número de participantes
+                </label>
+                <div className="grid grid-cols-3 gap-6">
+                  {[2, 4, 8].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => handleNumChange(num as 2 | 4 | 8)}
+                      className={`py-5 px-8 rounded-xl font-semibold text-xl transition-all ${
+                        numParticipants === num
+                          ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/50'
+                          : 'bg-white/10 text-white/60 hover:bg-white/15'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-10">
+                <label className="block text-white text-base font-medium mb-5">
+                  Nombres de los participantes
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {names.map((name, index) => (
+                    <input
+                      key={index}
+                      type="text"
+                      value={name}
+                      onChange={(e) => handleNameChange(index, e.target.value)}
+                      placeholder={`Participante ${index + 1}`}
+                      className="px-5 py-4 bg-white/10 border border-white/20 rounded-xl text-white text-base placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleStart}
+                disabled={!allNamesFilled}
+                className={`w-full py-5 rounded-xl font-bold text-xl transition-all ${
+                  allNamesFilled
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-xl hover:shadow-blue-500/50 hover:scale-[1.02]'
+                    : 'bg-white/10 text-white/40 cursor-not-allowed'
+                }`}
+              >
+                Crear sala de espera
+              </button>
+              <p className="text-center text-white/40 text-sm mt-3">
+                Podrás compartir el enlace con todos antes de comenzar el sorteo
+              </p>
+            </>
+          ) : (
+            <div className="max-w-lg mx-auto">
+              <p className="text-blue-200 text-lg mb-8 text-center">
+                Pide a quien creó el torneo que te comparta el código, o copia la URL directamente.
+              </p>
+              <div className="mb-6">
+                <label className="block text-white text-base font-medium mb-4">
+                  Código del torneo
+                </label>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  placeholder="Pega aquí el código del torneo..."
+                  className="w-full px-5 py-4 bg-white/10 border border-white/20 rounded-xl text-white text-base placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <button
+                onClick={handleJoin}
+                disabled={joinCode.trim().length <= 10}
+                className={`w-full py-5 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-3 ${
+                  joinCode.trim().length > 10
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-xl hover:shadow-blue-500/50 hover:scale-[1.02]'
+                    : 'bg-white/10 text-white/40 cursor-not-allowed'
+                }`}
+              >
+                <LogIn className="w-6 h-6" />
+                Unirme
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
