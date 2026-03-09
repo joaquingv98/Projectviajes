@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Match, Proposal } from '../lib/supabase';
-import { Plane, Send, Clock, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { Plane, Send, Clock, ChevronLeft, ChevronRight, CalendarDays, Globe } from 'lucide-react';
 
 interface MatchSubmissionProps {
   match: Match;
@@ -14,6 +14,18 @@ interface MatchSubmissionProps {
   }) => void;
   onBack: () => void;
 }
+
+// ─── Ruleta de destinos ────────────────────────────────────────────────────
+const DESTINOS_RULETA = [
+  'Bangkok, Tailandia', 'Tokio, Japón', 'Nueva York, EE.UU.', 'París, Francia',
+  'Barcelona, España', 'Lisboa, Portugal', 'Roma, Italia', 'Londres, Reino Unido',
+  'Ámsterdam, Países Bajos', 'Dubái, Emiratos Árabes', 'Sídney, Australia',
+  'Ciudad de México, México', 'Buenos Aires, Argentina', 'Berlín, Alemania',
+  'Praga, República Checa', 'Seúl, Corea del Sur', 'Singapur', 'Estambul, Turquía',
+  'Miami, EE.UU.', 'Los Ángeles, EE.UU.', 'Marrakech, Marruecos', 'Cairo, Egipto',
+  'Moscú, Rusia', 'Copenhague, Dinamarca', 'Edimburgo, Reino Unido', 'Dublin, Irlanda',
+  'Atenas, Grecia', 'Croacia', 'Islandia', 'Noruega', 'Malta', 'Santorini, Grecia',
+];
 
 // ─── Mini calendario ───────────────────────────────────────────────────────
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -263,6 +275,35 @@ export default function MatchSubmission({
   const [dateFrom, setDateFrom]       = useState('');
   const [dateTo, setDateTo]           = useState('');
   const [submitting, setSubmitting]   = useState(false);
+  const [spinning, setSpinning]       = useState(false);
+  const [roulettePreview, setRoulettePreview] = useState<string | null>(null);
+
+  const handleRouletteClick = () => {
+    if (spinning) return;
+    setSpinning(true);
+    setRoulettePreview(null);
+
+    const duration = 1800;
+    const interval = 60;
+    let elapsed = 0;
+
+    const tick = () => {
+      elapsed += interval;
+      const randomIdx = Math.floor(Math.random() * DESTINOS_RULETA.length);
+      setRoulettePreview(DESTINOS_RULETA[randomIdx]);
+
+      if (elapsed < duration) {
+        setTimeout(tick, interval);
+      } else {
+        const finalIdx = Math.floor(Math.random() * DESTINOS_RULETA.length);
+        const finalDest = DESTINOS_RULETA[finalIdx];
+        setDestination(finalDest);
+        setRoulettePreview(null);
+        setSpinning(false);
+      }
+    };
+    tick();
+  };
 
   const formatDate = (iso: string) => {
     if (!iso) return '';
@@ -420,12 +461,31 @@ export default function MatchSubmission({
               </label>
               <input
                 type="text"
-                value={destination}
-                onChange={e => setDestination(e.target.value)}
+                value={spinning ? (roulettePreview ?? '') : destination}
+                onChange={e => !spinning && setDestination(e.target.value)}
                 placeholder="Bangkok, Tailandia"
+                readOnly={spinning}
                 className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <span className="text-sm text-blue-300/80">¿No lo tienes claro?</span>
+                <button
+                  type="button"
+                  onClick={handleRouletteClick}
+                  disabled={spinning}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    spinning
+                      ? 'bg-blue-500/30 text-blue-300 cursor-wait'
+                      : 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/40 hover:text-white hover:scale-105 border border-blue-400/40'
+                  }`}
+                >
+                  <Globe
+                    className={`w-5 h-5 ${spinning ? 'animate-spin' : ''}`}
+                  />
+                  {spinning ? '¡Girando...!' : '¡Juega la ruleta!'}
+                </button>
+              </div>
             </div>
 
             <div>

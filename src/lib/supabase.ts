@@ -60,3 +60,15 @@ export interface Vote {
   proposal_id: string;
   created_at: string;
 }
+
+/** Función pura: determina ganador o empate a partir de votos y propuestas */
+export function resolveVotes(matchVotes: Vote[], matchProposals: Proposal[]) {
+  const voteCounts: Record<string, number> = {};
+  matchVotes.forEach(v => { voteCounts[v.proposal_id] = (voteCounts[v.proposal_id] || 0) + 1; });
+  const sorted = [...matchProposals].sort(
+    (a, b) => (voteCounts[b.id] || 0) - (voteCounts[a.id] || 0)
+  );
+  const topCount = voteCounts[sorted[0]?.id] || 0;
+  const secondCount = voteCounts[sorted[1]?.id] || 0;
+  return { winner: sorted[0], isTied: topCount === secondCount };
+}
