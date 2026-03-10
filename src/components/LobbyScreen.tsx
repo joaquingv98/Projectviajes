@@ -68,28 +68,28 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
 
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3">Sala de espera</h1>
-          <p className="text-xl text-blue-200">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">Sala de espera</h1>
+          <p className="text-xl text-slate-300/90">
             Que todos abran el enlace y elijan su nombre antes de empezar
           </p>
         </div>
 
         {/* Contador */}
-        <div className={`rounded-2xl p-5 mb-6 border text-center transition-all ${
+        <div className={`rounded-2xl p-5 mb-6 border text-center transition-all card-modern ${
           allJoined
-            ? 'bg-green-500/10 border-green-400/40'
-            : 'bg-white/5 border-white/10'
+            ? 'border-emerald-500/30 bg-emerald-500/5'
+            : ''
         }`}>
-          <div className={`text-4xl font-extrabold mb-1 ${allJoined ? 'text-green-400' : 'text-white'}`}>
+          <div className={`text-4xl font-extrabold mb-1 ${allJoined ? 'text-emerald-400' : 'text-white'}`}>
             {connectedUsers.length} / {totalParticipants}
           </div>
-          <div className={`text-sm font-medium ${allJoined ? 'text-green-300' : 'text-blue-200'}`}>
+          <div className={`text-sm font-medium ${allJoined ? 'text-emerald-300/90' : 'text-slate-400'}`}>
             {allJoined ? '¡Todos listos! Puedes empezar el sorteo' : 'participantes conectados'}
           </div>
         </div>
 
         {/* Lista de participantes */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
+        <div className="card-modern p-6 mb-6">
           <div className="grid grid-cols-2 gap-3">
             {tournament.participants.map((name) => {
               const hasJoined = hasBots || connectedUsers.includes(name);
@@ -98,12 +98,12 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
               return (
                 <div
                   key={name}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all card-modern-inner ${
                     hasJoined
                       ? isMe
-                        ? 'bg-blue-500/20 border-blue-400/50'
-                        : 'bg-green-500/10 border-green-400/30'
-                      : 'bg-white/3 border-white/10 opacity-50'
+                        ? 'border-blue-400/40 bg-blue-500/10'
+                        : 'border-emerald-500/30 bg-emerald-500/5'
+                      : 'border-white/5 bg-white/[0.02] opacity-50'
                   }`}
                 >
                   {hasJoined
@@ -122,8 +122,8 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
         </div>
 
         {/* Enlace */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6">
-          <p className="text-blue-300 text-xs font-bold uppercase tracking-widest mb-3">
+        <div className="card-modern p-5 mb-6">
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">
             Comparte este enlace
           </p>
           <div className="flex gap-3">
@@ -132,14 +132,14 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
               readOnly
               value={shareUrl}
               onClick={e => (e.target as HTMLInputElement).select()}
-              className="flex-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white text-sm font-mono cursor-text focus:outline-none"
+              className="input-modern flex-1 px-3 py-2 text-white text-sm font-mono cursor-text"
             />
             <button
               onClick={handleCopy}
-              className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+              className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
                 copied
-                  ? 'bg-green-500/20 border border-green-400/50 text-green-300'
-                  : 'bg-blue-500/30 border border-blue-400/50 text-white hover:bg-blue-500/50'
+                  ? 'bg-emerald-500/20 border border-emerald-400/40 text-emerald-300'
+                  : 'btn-secondary'
               }`}
             >
               {copied ? <><Check className="w-4 h-4" /> Copiado</> : <><Copy className="w-4 h-4" /> Copiar</>}
@@ -149,7 +149,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
 
         {/* Botón inicio */}
         {starting ? (
-          <div className="flex items-center justify-center gap-3 text-blue-300 text-xl py-4">
+          <div className="flex items-center justify-center gap-3 text-slate-400 text-xl py-4">
             <Loader2 className="w-7 h-7 animate-spin" />
             Sorteando emparejamientos...
           </div>
@@ -160,15 +160,15 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
               disabled={!allJoined}
               className={`w-full py-5 font-extrabold text-xl rounded-2xl transition-all flex items-center justify-center gap-3 ${
                 allJoined
-                  ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black hover:scale-[1.02] hover:shadow-2xl hover:shadow-yellow-500/40 cursor-pointer'
-                  : 'bg-white/10 text-white/30 cursor-not-allowed'
+                  ? 'btn-primary'
+                  : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'
               }`}
             >
               <Play className={`w-7 h-7 fill-current ${!allJoined ? 'opacity-30' : ''}`} />
               {allJoined ? '¡Comenzar sorteo!' : hasBots ? '¡Comenzar sorteo!' : `Esperando a ${totalParticipants - connectedUsers.length} más...`}
             </button>
             {!allJoined && (
-              <p className="text-center text-white/30 text-sm mt-3">
+              <p className="text-center text-slate-500 text-sm mt-3">
                 El botón se activará cuando todos hayan elegido su nombre
               </p>
             )}

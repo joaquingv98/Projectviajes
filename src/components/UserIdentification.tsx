@@ -63,14 +63,14 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
     <div className="min-h-screen flex items-center justify-center p-8">
       <div className="w-full max-w-lg">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-blue-500/20 rounded-full mb-6">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl card-modern-inner mb-6">
             <UserCircle2 className="w-12 h-12 text-blue-400" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-3">¿Quién eres tú?</h1>
-          <p className="text-lg text-blue-200">Selecciona tu nombre para unirte al torneo</p>
+          <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">¿Quién eres tú?</h1>
+          <p className="text-lg text-slate-300/90">Selecciona tu nombre para unirte al torneo</p>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
+        <div className="card-modern p-8">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-3">
               <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
@@ -81,7 +81,7 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
               <p className="text-red-400 text-lg mb-6">{error}</p>
               <button
                 onClick={() => { window.location.hash = ''; window.location.reload(); }}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold transition-all"
+                className="btn-secondary px-6 py-3"
               >
                 Volver al inicio
               </button>
@@ -99,14 +99,14 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
                     disabled={isTaken || !!selecting}
                     className={`w-full py-4 px-6 border rounded-xl text-lg font-semibold transition-all text-left flex items-center gap-3 ${
                       isTaken
-                        ? 'bg-white/3 border-white/10 text-white/30 cursor-not-allowed'
+                        ? 'card-modern-inner border-white/5 text-slate-500 cursor-not-allowed'
                         : selecting
-                        ? 'bg-white/5 border-white/10 text-white/50 cursor-wait'
-                        : 'bg-white/10 hover:bg-blue-500 border-white/20 hover:border-blue-400 text-white hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/30 cursor-pointer'
+                        ? 'card-modern-inner text-slate-400 cursor-wait'
+                        : 'card-modern-inner hover:border-blue-400/40 hover:bg-blue-500/10 text-white hover:scale-[1.01] cursor-pointer'
                     }`}
                   >
-                    <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
-                      isTaken ? 'bg-white/5 text-white/20' : 'bg-blue-500/30 text-blue-300'
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+                      isTaken ? 'bg-white/5 text-slate-500' : 'bg-blue-500/20 text-blue-300'
                     }`}>
                       {isSelecting
                         ? <Loader2 className="w-4 h-4 animate-spin" />

@@ -7,21 +7,32 @@
     margin: 0;
     min-height: 100%;
     font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-    /* Fondo mapa mundi + overlay azul moderno */
-    background-color: #001B44;
+    /* Fondo moderno: mapa + gradiente oscuro + patrón de puntos sutil */
+    background-color: #0a0e1a;
     background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.15), transparent),
+      radial-gradient(circle at 20% 80%, rgba(34, 197, 94, 0.06), transparent 50%),
       linear-gradient(
         180deg,
-        rgba(0, 27, 68, 0.92) 0%,
-        rgba(0, 27, 68, 0.82) 40%,
-        rgba(0, 27, 68, 0.78) 70%,
-        rgba(0, 27, 68, 0.92) 100%
+        rgba(10, 14, 26, 0.97) 0%,
+        rgba(0, 27, 68, 0.92) 25%,
+        rgba(0, 27, 68, 0.85) 60%,
+        rgba(10, 14, 26, 0.97) 100%
       ),
       url('/world-map-bg.png');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    background-repeat: no-repeat;
+    background-size: cover, cover, cover, cover;
+    background-position: center, center, center, center;
+    background-attachment: fixed, fixed, fixed, fixed;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+  html::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
   }
   @media (max-width: 768px) {
     html, body {
@@ -31,6 +42,60 @@
   #root {
     min-height: 100vh;
     position: relative;
+    z-index: 1;
+  }
+}
+
+@layer components {
+  /* Card moderna: semi-transparente, bordes sutiles, efecto vidrio */
+  .card-modern {
+    @apply rounded-2xl border backdrop-blur-md;
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+  .card-modern-inner {
+    background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    @apply rounded-xl;
+  }
+  /* CTA principal: gradiente amarillo/dorado como referencia */
+  .btn-primary {
+    @apply font-bold rounded-xl transition-all inline-flex items-center justify-center gap-2;
+    background: linear-gradient(135deg, #eab308 0%, #ca8a04 50%, #a16207 100%);
+    color: #000;
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.35);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #facc15 0%, #eab308 50%, #ca8a04 100%);
+    box-shadow: 0 6px 28px rgba(250, 204, 21, 0.45);
+    transform: translateY(-1px);
+  }
+  /* Botón secundario: blanco con texto oscuro */
+  .btn-secondary {
+    @apply font-semibold rounded-xl transition-all;
+    background: rgba(255, 255, 255, 0.95);
+    color: #0f172a;
+  }
+  .btn-secondary:hover {
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+  }
+  /* Input moderno */
+  .input-modern {
+    @apply rounded-xl transition-all focus:outline-none;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .input-modern:focus {
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+  /* Tabs estilo pill moderno */
+  .tabs-modern {
+    @apply flex gap-1 p-1.5 rounded-2xl overflow-x-auto;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 }
 

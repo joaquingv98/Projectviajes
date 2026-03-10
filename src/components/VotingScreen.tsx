@@ -72,13 +72,14 @@ export default function VotingScreen({
     const isSelected = selectedProposalId === proposal.id;
     const isPlayer = proposal.player_name === currentUser;
 
-    let borderClass = 'border-white/20';
-    let bgClass = 'bg-white/5';
-    if (isConfirmedVote) { borderClass = 'border-green-400'; bgClass = 'bg-green-500/10'; }
-    else if (isSelected) { borderClass = 'border-yellow-400'; bgClass = 'bg-yellow-500/10'; }
+    let borderClass = 'border-white/10';
+    let bgClass = '';
+    if (isConfirmedVote) { borderClass = 'border-emerald-500/40'; bgClass = 'bg-emerald-500/5'; }
+    else if (isSelected) { borderClass = 'border-yellow-400/50'; bgClass = 'bg-yellow-500/5'; }
+    else { bgClass = 'bg-white/[0.03]'; }
 
     return (
-      <div className={`relative backdrop-blur-sm rounded-xl border transition-all ${bgClass} ${borderClass} ${isConfirmedVote ? 'shadow-lg shadow-green-500/30' : isSelected ? 'shadow-lg shadow-yellow-500/30' : ''} ${isMobileDevice() ? 'p-4' : 'p-6'}`}>
+      <div className={`relative card-modern-inner rounded-xl border transition-all ${bgClass} ${borderClass} ${isConfirmedVote ? 'shadow-lg shadow-emerald-500/20' : isSelected ? 'shadow-lg shadow-yellow-500/20' : ''} ${isMobileDevice() ? 'p-4' : 'p-6'}`}>
         {isConfirmedVote && (
           <div className="absolute top-4 right-4">
             <Lock className="w-5 h-5 text-green-400" />
@@ -172,7 +173,7 @@ export default function VotingScreen({
         {/* Encabezado */}
         <div className={`text-center ${isMobile ? 'mb-4' : 'mb-8'}`}>
           {everyoneVoted ? (
-            <div className="inline-flex items-center justify-center gap-3 bg-green-500/20 backdrop-blur-sm rounded-2xl px-8 py-4 border border-green-400/50 mb-4 animate-pulse">
+            <div className="inline-flex items-center justify-center gap-3 bg-emerald-500/10 backdrop-blur-sm rounded-2xl px-8 py-4 border border-emerald-400/40 mb-4 animate-pulse">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
               <div>
                 <div className="text-sm text-green-300 mb-1">Votación cerrada</div>
@@ -181,7 +182,7 @@ export default function VotingScreen({
               </div>
             </div>
           ) : (
-            <div className="inline-flex items-center justify-center gap-3 bg-white/5 backdrop-blur-sm rounded-2xl px-8 py-4 border border-white/20 mb-4">
+            <div className="inline-flex items-center justify-center gap-3 card-modern px-8 py-4 mb-4">
               <Clock className="w-8 h-8 text-blue-400" />
               <div>
                 <div className="text-sm text-blue-200 mb-1">Tiempo restante</div>
@@ -194,7 +195,7 @@ export default function VotingScreen({
           <h1 className="text-3xl font-bold text-white mb-2">
             {match.player1_name} vs {match.player2_name}
           </h1>
-          <p className="text-blue-200">
+          <p className="text-slate-300/90">
             {everyoneVoted
               ? `Ganador: ${player1Votes >= player2Votes ? match.player1_name : match.player2_name} 🏆`
               : !myConfirmedVote
@@ -212,7 +213,7 @@ export default function VotingScreen({
         {/* Confirmar voto - compacto en móvil, integrado */}
         {selectedProposalId && !myConfirmedVote && (
           <div className={`fixed left-1/2 -translate-x-1/2 z-[100] ${isMobileDevice() ? 'bottom-20' : 'bottom-8'}`}>
-            <div className={`flex items-center gap-3 backdrop-blur-md bg-[#001B44]/95 border border-yellow-400/40 rounded-2xl shadow-xl ${isMobileDevice() ? 'px-4 py-3' : 'px-6 py-4'}`}>
+            <div className={`flex items-center gap-3 card-modern border-yellow-400/30 ${isMobileDevice() ? 'px-4 py-3' : 'px-6 py-4'}`}>
               <div className="min-w-0 flex-1">
                 <div className="text-yellow-300 text-xs font-semibold truncate">
                   {selectedProposal?.destination || selectedProposal?.player_name}
@@ -234,7 +235,7 @@ export default function VotingScreen({
         )}
 
         {/* Estado de votaciones */}
-        <div className={`bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 ${isMobile ? 'p-4' : 'p-6'}`}>
+        <div className={`card-modern ${isMobile ? 'p-4' : 'p-6'}`}>
           <h3 className={`font-bold text-white ${isMobile ? 'text-base mb-3' : 'text-lg mb-4'}`}>Estado de votaciones</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {participants.map((participant) => {
@@ -245,8 +246,8 @@ export default function VotingScreen({
                   key={participant}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
                     hasConfirmed
-                      ? 'bg-green-500/20 border border-green-400/50'
-                      : 'bg-white/5 border border-white/10'
+                      ? 'bg-emerald-500/10 border border-emerald-400/40'
+                      : 'card-modern-inner'
                   }`}
                 >
                   {hasConfirmed

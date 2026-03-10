@@ -107,7 +107,7 @@ export default function TiebreakerScreen({
             </button>
             <button
               onClick={onAdvancePhase}
-              className="px-4 py-2 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 hover:text-white transition-all flex items-center gap-2"
+              className="btn-secondary px-4 py-2 text-sm flex items-center gap-2"
             >
               ⏭ Saltar minuto de defensa
             </button>
@@ -155,25 +155,25 @@ export default function TiebreakerScreen({
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                 <button
                   onClick={onAdvancePhase}
-                  className="px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-black text-lg rounded-xl hover:shadow-2xl hover:shadow-yellow-500/40 hover:scale-[1.02] transition-all"
+                  className="btn-primary px-8 py-4 text-lg"
                 >
                   He terminado mi defensa ➤
                 </button>
                 <button
                   onClick={onAdvancePhase}
-                  className="px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 hover:text-white transition-all"
+                  className="btn-secondary px-6 py-3 text-sm"
                 >
                   ⏭ Saltar defensa
                 </button>
               </div>
             </div>
           ) : (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-10 mb-6 text-center">
+            <div className="card-modern p-10 mb-6 text-center">
               <div className="text-5xl mb-4">👂</div>
               <div className="text-white text-2xl font-bold mb-2">
                 {defendingPlayer} está defendiendo su viaje
               </div>
-              <p className="text-blue-300">Escucha su argumento...</p>
+              <p className="text-slate-400">Escucha su argumento...</p>
               {phase === 'tiebreak_d2' && (
                 <p className="text-white/40 text-sm mt-2">
                   Fase 2 de 2 — después vendrá la segunda votación
@@ -191,7 +191,7 @@ export default function TiebreakerScreen({
           {/* Mini tarjetas de propuestas */}
           <div className="grid grid-cols-2 gap-4">
             {[p1Proposal, p2Proposal].filter(Boolean).map(p => p && (
-              <div key={p.id} className="bg-white/5 border border-white/10 rounded-xl p-4 opacity-60">
+              <div key={p.id} className="card-modern-inner rounded-xl p-4 opacity-60">
                 <div className="text-white font-bold">{p.player_name}</div>
                 {p.destination && <div className="text-blue-300 text-xl font-bold">{p.destination}</div>}
                 <div className="text-white/60 text-lg">{p.price} €</div>
@@ -264,7 +264,7 @@ export default function TiebreakerScreen({
           </div>
 
           {/* Estado de votos */}
-          <div className="bg-white/5 rounded-xl p-5 border border-white/10">
+          <div className="card-modern p-5">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {participants.map(name => {
                 const voted = votes.some(v => v.voter_name === name);

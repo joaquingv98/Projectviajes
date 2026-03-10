@@ -338,17 +338,17 @@ export default function MatchSubmission({
         <div className="max-w-2xl mx-auto">
           <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 rounded-full mb-5">
-              <Send className="w-10 h-10 text-green-400" />
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-3">¡Propuesta enviada!</h1>
-            <p className="text-xl text-blue-200">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl card-modern-inner mb-5 border-emerald-500/30">
+            <Send className="w-10 h-10 text-emerald-400" />
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">¡Propuesta enviada!</h1>
+          <p className="text-xl text-slate-300/90">
               {otherProposal
                 ? 'Los dos habéis enviado vuestra propuesta. ¡Que empiece la votación!'
                 : `Esperando a que ${otherPlayerName} envíe la suya...`}
             </p>
           </div>
-          <div className="bg-green-500/10 border border-green-400/40 rounded-2xl p-8 mb-6">
+          <div className="card-modern border-emerald-500/30 bg-emerald-500/5 p-8 mb-6">
             <h3 className="text-lg font-bold text-green-400 mb-4">Tu propuesta</h3>
             <div className="space-y-3">
               {myProposal.destination && (
@@ -369,7 +369,7 @@ export default function MatchSubmission({
               </div>
             </div>
           </div>
-          <div className={`rounded-2xl p-6 border flex items-center gap-4 ${otherProposal ? 'bg-green-500/10 border-green-400/40' : 'bg-white/5 border-white/10'}`}>
+          <div className={`rounded-2xl p-6 border flex items-center gap-4 card-modern-inner ${otherProposal ? 'border-emerald-500/30 bg-emerald-500/5' : ''}`}>
             <Clock className={`w-8 h-8 flex-shrink-0 ${otherProposal ? 'text-green-400' : 'text-blue-400 animate-pulse'}`} />
             <div>
               <p className="text-white font-semibold text-lg">{otherPlayerName}</p>
@@ -388,11 +388,11 @@ export default function MatchSubmission({
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center max-w-lg">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-blue-500/20 rounded-full mb-6">
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl card-modern-inner mb-6">
             <Clock className="w-12 h-12 text-blue-400 animate-pulse" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">Fase de propuestas</h1>
-          <p className="text-xl text-blue-200 mb-8">
+          <h1 className="text-4xl font-bold text-white mb-4 tracking-tight">Fase de propuestas</h1>
+          <p className="text-xl text-slate-300/90 mb-8">
             <span className="font-bold text-white">{match.player1_name}</span> y{' '}
             <span className="font-bold text-white">{match.player2_name}</span> están preparando sus propuestas de viaje.
           </p>
@@ -409,26 +409,26 @@ export default function MatchSubmission({
         <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl card-modern-inner mb-4">
             <Plane className="w-8 h-8 text-blue-400" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">{match.player1_name} vs {match.player2_name}</h1>
-          <p className="text-blue-200">Envía tu propuesta de viaje</p>
+          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">{match.player1_name} vs {match.player2_name}</h1>
+          <p className="text-slate-300/90">Envía tu propuesta de viaje</p>
         </div>
 
-        <div className={`rounded-xl p-4 border mb-8 flex items-center gap-3 ${otherProposal ? 'bg-green-500/10 border-green-400/40' : 'bg-white/5 border-white/10'}`}>
+        <div className={`rounded-xl p-4 border mb-8 flex items-center gap-3 card-modern-inner ${otherProposal ? 'border-emerald-500/30 bg-emerald-500/5' : ''}`}>
           <div className={`w-3 h-3 rounded-full flex-shrink-0 ${otherProposal ? 'bg-green-400' : 'bg-white/20 animate-pulse'}`} />
           <span className="text-white/70 text-sm">
             {otherPlayerName}: {otherProposal ? '✓ Propuesta enviada' : 'Preparando su propuesta...'}
           </span>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-8 border border-white/10">
+        <div className="card-modern p-8">
           <h2 className="text-2xl font-bold text-white mb-6">Tu propuesta</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div>
-              <label className="block text-white text-sm font-medium mb-2">
+              <label className="block text-slate-300 text-sm font-medium mb-2">
                 Enlace al vuelo <span className="text-red-400">*</span>
               </label>
               <input
@@ -436,13 +436,13 @@ export default function MatchSubmission({
                 value={flightLink}
                 onChange={e => setFlightLink(e.target.value)}
                 placeholder="https://www.skyscanner.com/..."
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input-modern w-full px-4 py-3 text-white placeholder-white/40"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-white text-sm font-medium mb-2">
+              <label className="block text-slate-300 text-sm font-medium mb-2">
                 Precio (€) <span className="text-red-400">*</span>
               </label>
               <input
@@ -451,13 +451,13 @@ export default function MatchSubmission({
                 value={price}
                 onChange={e => setPrice(e.target.value)}
                 placeholder="450"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input-modern w-full px-4 py-3 text-white placeholder-white/40"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-white text-sm font-medium mb-2">
+              <label className="block text-slate-300 text-sm font-medium mb-2">
                 Destino <span className="text-red-400">*</span>
               </label>
               <input
@@ -466,7 +466,7 @@ export default function MatchSubmission({
                 onChange={e => !spinning && setDestination(e.target.value)}
                 placeholder="Bangkok, Tailandia"
                 readOnly={spinning}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input-modern w-full px-4 py-3 text-white placeholder-white/40"
                 required
               />
               <div className="mt-3 flex items-center justify-center gap-2">
@@ -490,7 +490,7 @@ export default function MatchSubmission({
             </div>
 
             <div>
-              <label className="block text-white text-sm font-medium mb-2">
+              <label className="block text-slate-300 text-sm font-medium mb-2">
                 Fechas del viaje <span className="text-red-400">*</span>
               </label>
               <DateRangePicker
@@ -505,8 +505,8 @@ export default function MatchSubmission({
               disabled={submitting || !canSubmit}
               className={`w-full py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 transition-all mt-2 ${
                 submitting || !canSubmit
-                  ? 'bg-white/10 text-white/40 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-xl hover:shadow-blue-500/50 hover:scale-[1.02]'
+                  ? 'bg-white/5 text-white/40 cursor-not-allowed border border-white/5'
+                  : 'btn-primary'
               }`}
             >
               <Send className="w-5 h-5" />
