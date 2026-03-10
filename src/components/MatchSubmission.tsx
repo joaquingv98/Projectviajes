@@ -207,8 +207,7 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
 
       {/* Dropdown calendario */}
       {open && (
-        <div className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-6"
-          style={{ minWidth: 620 }}
+        <div className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[620px]"
         >
           {/* Instrucción */}
           <p className="text-blue-300/70 text-xs text-center mb-4 uppercase tracking-widest">

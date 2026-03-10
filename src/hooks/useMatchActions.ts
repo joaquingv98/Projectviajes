@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { supabase, Tournament, Match, TIEBREAKER_PHASES, resolveVotes } from '../lib/supabase';
+import { isBot, generateMockProposal } from '../lib/mobile';
 
 export function useMatchActions(tournament: Tournament | null) {
   const advanceWinner = useCallback(async (
@@ -191,9 +192,26 @@ export function useMatchActions(tournament: Tournament | null) {
   }, [tournament]);
 
   const handleStartMatch = useCallback(async (match: Match) => {
-    await supabase.from('matches')
-      .update({ status: 'proposing' })
-      .eq('id', match.id);
+    const p1 = match.player1_name;
+    const p2 = match.player2_name;
+
+    // Si ambos jugadores son bots, generar propuestas y pasar directo a votación
+    if (p2 && isBot(p1) && isBot(p2)) {
+      const mock1 = generateMockProposal(p1);
+      const mock2 = generateMockProposal(p2);
+      await supabase.from('proposals').insert([
+        { match_id: match.id, player_name: p1, ...mock1 },
+        { match_id: match.id, player_name: p2, ...mock2 },
+      ]);
+      const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      await supabase.from('matches')
+        .update({ status: 'voting', voting_ends_at: votingEndsAt })
+        .eq('id', match.id);
+    } else {
+      await supabase.from('matches')
+        .update({ status: 'proposing' })
+        .eq('id', match.id);
+    }
   }, []);
 
   const handleSubmitProposal = useCallback(async (
@@ -204,6 +222,22 @@ export function useMatchActions(tournament: Tournament | null) {
     await supabase.from('proposals').insert({
       match_id: matchId, player_name: playerName, ...proposalData,
     });
+
+    const { data: match } = await supabase.from('matches').select('player1_name, player2_name').eq('id', matchId).single();
+    const otherPlayer = match?.player1_name === playerName ? match?.player2_name : match?.player1_name;
+
+    // Si el oponente es un bot, generar y enviar su propuesta automáticamente
+    if (otherPlayer && isBot(otherPlayer)) {
+      const mock = generateMockProposal(otherPlayer);
+      await supabase.from('proposals').insert({
+        match_id: matchId,
+        player_name: otherPlayer,
+        flight_link: mock.flight_link,
+        price: mock.price,
+        destination: mock.destination,
+        dates: mock.dates,
+      });
+    }
 
     const { data: allProposals } = await supabase
       .from('proposals').select('*').eq('match_id', matchId);
@@ -223,6 +257,21 @@ export function useMatchActions(tournament: Tournament | null) {
     );
 
     if (tournament) {
+      const bots = tournament.participants.filter(p => isBot(p));
+      const { data: proposals } = await supabase.from('proposals').select('id').eq('match_id', matchId);
+      const proposalIds = proposals?.map(p => p.id) ?? [];
+
+      // Bots votan automáticamente (aleatorio entre las dos propuestas)
+      for (const botName of bots) {
+        const randomProposalId = proposalIds[Math.floor(Math.random() * proposalIds.length)];
+        if (randomProposalId) {
+          await supabase.from('votes').upsert(
+            { match_id: matchId, voter_name: botName, proposal_id: randomProposalId },
+            { onConflict: 'match_id,voter_name' }
+          );
+        }
+      }
+
       const { data: allVotes } = await supabase
         .from('votes').select('*').eq('match_id', matchId);
       if (allVotes && allVotes.length >= tournament.participants.length) {
@@ -237,6 +286,20 @@ export function useMatchActions(tournament: Tournament | null) {
       { onConflict: 'match_id,voter_name' }
     );
     if (tournament) {
+      const bots = tournament.participants.filter(p => isBot(p));
+      const { data: proposals } = await supabase.from('proposals').select('id').eq('match_id', matchId);
+      const proposalIds = proposals?.map(p => p.id) ?? [];
+
+      for (const botName of bots) {
+        const randomProposalId = proposalIds[Math.floor(Math.random() * proposalIds.length)];
+        if (randomProposalId) {
+          await supabase.from('votes').upsert(
+            { match_id: matchId, voter_name: botName, proposal_id: randomProposalId },
+            { onConflict: 'match_id,voter_name' }
+          );
+        }
+      }
+
       const { data: allVotes } = await supabase.from('votes').select('*').eq('match_id', matchId);
       if (allVotes && allVotes.length >= tournament.participants.length) {
         await advanceTiebreakerPhase(matchId);

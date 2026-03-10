@@ -204,10 +204,15 @@ export default function Bracket({
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #001B44 0%, #002855 50%, #003366 100%)', display: 'flex', flexDirection: 'column', padding: '40px 48px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #001B44 0%, #002855 50%, #003366 100%)', display: 'flex', flexDirection: 'column', padding: '20px 16px', paddingBottom: 80 }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .bracket-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        }
+      `}</style>
       {/* Cabecera */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <h1 style={{ fontSize: 48, fontWeight: 800, color: 'white', marginBottom: 8, letterSpacing: 1 }}>
+        <h1 style={{ fontSize: 'clamp(28px, 6vw, 48px)', fontWeight: 800, color: 'white', marginBottom: 8, letterSpacing: 1 }}>
           Cuadro del Torneo
         </h1>
         {currentUser && (
@@ -343,8 +348,8 @@ export default function Bracket({
       )}
 
       {/* Bracket */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 0 }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
+        <div className="bracket-scroll" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 0, minWidth: 'min-content' }}>
 
           {tournamentSize === 8 && quarterMatches.length > 0 && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

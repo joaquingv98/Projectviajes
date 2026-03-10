@@ -80,11 +80,18 @@ function App() {
     });
   }, [matches, completeMatch, advanceTiebreakerPhase]);
 
-  const handleCreateLobby = async (participants: string[]) => {
+  const handleCreateLobby = async (participants: string[], currentUserForMobile?: string) => {
     const result = await createLobby(participants);
     if (result) {
       window.location.hash = result.tournamentId;
-      setState({ screen: 'identify', tournamentId: result.tournamentId });
+      if (currentUserForMobile) {
+        setCurrentUser(currentUserForMobile);
+        sessionStorage.setItem('tournament_user', JSON.stringify({ tournamentId: result.tournamentId, name: currentUserForMobile }));
+        setState({ screen: 'lobby', tournamentId: result.tournamentId });
+        loadTournamentData(result.tournamentId);
+      } else {
+        setState({ screen: 'identify', tournamentId: result.tournamentId });
+      }
     }
   };
 

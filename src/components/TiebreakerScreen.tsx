@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Match, Proposal, Vote } from '../lib/supabase';
+import { isBot } from '../lib/mobile';
 import { RotateCcw, Clock } from 'lucide-react';
 
 interface TiebreakerScreenProps {
@@ -45,6 +46,15 @@ export default function TiebreakerScreen({
     const interval = setInterval(calc, 1000);
     return () => clearInterval(interval);
   }, [match.voting_ends_at]);
+
+  // Auto-avanzar fase de defensa cuando el defensor es un bot
+  useEffect(() => {
+    if (phase !== 'tiebreak_d1' && phase !== 'tiebreak_d2') return;
+    const defendingPlayer = phase === 'tiebreak_d1' ? p1 : p2;
+    if (!isBot(defendingPlayer)) return;
+    const t = setTimeout(() => onAdvancePhase(), 2500);
+    return () => clearTimeout(t);
+  }, [phase, p1, p2, onAdvancePhase]);
 
   // Reset roulette state when phase changes to roulette
   useEffect(() => {

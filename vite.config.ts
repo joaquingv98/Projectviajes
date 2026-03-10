@@ -4,6 +4,12 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: true,
+  },
+  build: {
+    target: 'es2020', // Mejor compatibilidad con Safari iOS
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
