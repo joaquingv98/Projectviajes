@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Match, TIEBREAKER_PHASES } from './lib/supabase';
+import { setSoloModeBots } from './lib/mobile';
 import { useTournamentData } from './hooks/useTournamentData';
 import { useMatchActions } from './hooks/useMatchActions';
 import { useAutoNavigate, type AppState } from './hooks/useAutoNavigate';
@@ -41,6 +42,7 @@ function App() {
     handleTiebreakerVote,
     completeMatch,
     advanceTiebreakerPhase,
+    ensureBotsVoted,
   } = useMatchActions(tournament);
 
   // Restaurar sesión desde URL hash o sessionStorage
@@ -87,6 +89,8 @@ function App() {
       if (currentUserForMobile) {
         setCurrentUser(currentUserForMobile);
         sessionStorage.setItem('tournament_user', JSON.stringify({ tournamentId: result.tournamentId, name: currentUserForMobile }));
+        const botNames = participants.filter(p => p !== currentUserForMobile);
+        setSoloModeBots(result.tournamentId, botNames);
         setState({ screen: 'lobby', tournamentId: result.tournamentId });
         loadTournamentData(result.tournamentId);
       } else {
@@ -216,6 +220,7 @@ function App() {
           onConfirmVote={(proposalId) => {
             if (currentUser) handleVote(match.id, currentUser, proposalId);
           }}
+          onEnsureBotsVoted={() => ensureBotsVoted(match.id)}
           onBack={() => setState({ screen: 'bracket', tournamentId: state.tournamentId })}
         />
       );
@@ -237,6 +242,7 @@ function App() {
           onVote={(proposalId) => {
             if (currentUser) handleTiebreakerVote(match.id, currentUser, proposalId);
           }}
+          onEnsureBotsVoted={() => ensureBotsVoted(match.id)}
           onBack={() => setState({ screen: 'bracket', tournamentId: state.tournamentId })}
         />
       );

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Music, VolumeX } from 'lucide-react';
+import { isMobileDevice } from '../lib/mobile';
 
 export default function MusicPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -24,72 +25,61 @@ export default function MusicPlayer() {
     setIsPlaying(prev => !prev);
   };
 
+  const isMobile = isMobileDevice();
+  const size = isMobile ? 40 : 56;
+  const iconSize = isMobile ? 18 : 24;
+
   return (
-    <>
+    <div
+      className="fixed z-[9998] flex flex-col items-center gap-1"
+      style={{
+        bottom: isMobile ? 12 : 24,
+        right: isMobile ? 12 : 24,
+      }}
+    >
+      {/* Tooltip solo en desktop */}
+      {!isMobile && isPlaying && (
+        <div className="bg-black/85 text-white text-xs font-semibold px-3 py-1.5 rounded-lg backdrop-blur-sm whitespace-nowrap">
+          ♪ Champions League Anthem
+        </div>
+      )}
 
-      {/* Botón flotante */}
-      <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        {/* Tooltip */}
-        {isPlaying && (
-          <div style={{
-            background: 'rgba(0,0,0,0.85)',
-            color: 'white',
-            fontSize: 12,
-            fontWeight: 600,
-            padding: '6px 12px',
-            borderRadius: 8,
-            whiteSpace: 'nowrap',
-            backdropFilter: 'blur(4px)',
-          }}>
-            ♪ Champions League Anthem
-          </div>
+      <button
+        onClick={togglePlay}
+        title={isPlaying ? 'Pausar himno' : 'Reproducir himno de la Champions'}
+        className={`
+          rounded-full border-none cursor-pointer flex items-center justify-center transition-all duration-200 relative
+          ${isMobile ? 'opacity-75 hover:opacity-100 active:scale-95' : 'hover:scale-110'}
+        `}
+        style={{
+          width: size,
+          height: size,
+          background: isPlaying
+            ? 'linear-gradient(135deg, #facc15, #d97706)'
+            : 'linear-gradient(135deg, #1d4ed8, #1e3a8a)',
+          boxShadow: isPlaying
+            ? '0 0 12px rgba(250,204,21,0.4)'
+            : '0 2px 8px rgba(0,0,0,0.3)',
+        }}
+      >
+        {isPlaying && !isMobile && (
+          <span
+            className="absolute inset-0 rounded-full border-2 border-yellow-400/50 animate-ping"
+            style={{ animationDuration: '1.5s' }}
+          />
         )}
+        {isPlaying ? (
+          <Music style={{ width: iconSize, height: iconSize, color: 'white', position: 'relative', zIndex: 1 }} />
+        ) : (
+          <VolumeX style={{ width: iconSize, height: iconSize, color: 'white', position: 'relative', zIndex: 1 }} />
+        )}
+      </button>
 
-        <button
-          onClick={togglePlay}
-          title={isPlaying ? 'Pausar himno' : 'Reproducir himno de la Champions'}
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: isPlaying
-              ? 'linear-gradient(135deg, #facc15, #d97706)'
-              : 'linear-gradient(135deg, #1d4ed8, #1e3a8a)',
-            boxShadow: isPlaying
-              ? '0 0 24px rgba(250,204,21,0.6), 0 4px 16px rgba(0,0,0,0.4)'
-              : '0 4px 16px rgba(0,0,0,0.4)',
-            transition: 'all 0.3s ease',
-            transform: 'scale(1)',
-            position: 'relative',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-        >
-          {/* Anillos pulsantes cuando suena */}
-          {isPlaying && (
-            <span style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '50%',
-              border: '2px solid rgba(250,204,21,0.5)',
-              animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
-            }} />
-          )}
-          {isPlaying
-            ? <Music style={{ width: 24, height: 24, color: 'white', position: 'relative', zIndex: 1 }} />
-            : <VolumeX style={{ width: 24, height: 24, color: 'white', position: 'relative', zIndex: 1 }} />
-          }
-        </button>
-
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+      {!isMobile && (
+        <span className="text-[10px] text-white/50 font-medium">
           {isPlaying ? 'Sonando' : 'Himno'}
         </span>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

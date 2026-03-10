@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Match, Proposal, Vote } from '../lib/supabase';
 import { ExternalLink, Clock, CheckCircle2, Lock } from 'lucide-react';
+import { isMobileDevice } from '../lib/mobile';
 
 interface VotingScreenProps {
   match: Match;
@@ -9,6 +10,7 @@ interface VotingScreenProps {
   participants: string[];
   currentUser: string | null;
   onConfirmVote: (proposalId: string) => void;
+  onEnsureBotsVoted: () => void;
   onBack: () => void;
 }
 
@@ -19,11 +21,17 @@ export default function VotingScreen({
   participants,
   currentUser,
   onConfirmVote,
+  onEnsureBotsVoted,
   onBack,
 }: VotingScreenProps) {
   const [timeRemaining, setTimeRemaining] = useState(0);
   // Selección provisional (local) — no escribe en BD hasta confirmar
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
+
+  // Los bots votan automáticamente al abrir la pantalla
+  useEffect(() => {
+    if (match.status === 'voting') onEnsureBotsVoted();
+  }, [match.id, match.status, onEnsureBotsVoted]);
 
   useEffect(() => {
     if (!match.voting_ends_at) return;
@@ -70,7 +78,7 @@ export default function VotingScreen({
     else if (isSelected) { borderClass = 'border-yellow-400'; bgClass = 'bg-yellow-500/10'; }
 
     return (
-      <div className={`relative backdrop-blur-sm rounded-xl p-6 border transition-all ${bgClass} ${borderClass} ${isConfirmedVote ? 'shadow-lg shadow-green-500/30' : isSelected ? 'shadow-lg shadow-yellow-500/30' : ''}`}>
+      <div className={`relative backdrop-blur-sm rounded-xl border transition-all ${bgClass} ${borderClass} ${isConfirmedVote ? 'shadow-lg shadow-green-500/30' : isSelected ? 'shadow-lg shadow-yellow-500/30' : ''} ${isMobileDevice() ? 'p-4' : 'p-6'}`}>
         {isConfirmedVote && (
           <div className="absolute top-4 right-4">
             <Lock className="w-5 h-5 text-green-400" />
@@ -87,15 +95,15 @@ export default function VotingScreen({
           </div>
         )}
 
-        <div className={`mb-6 ${isPlayer ? 'mt-8' : ''}`}>
-          <h3 className="text-2xl font-bold text-white mb-2">{proposal.player_name}</h3>
+        <div className={`${isPlayer ? 'mt-6' : ''} ${isMobileDevice() ? 'mb-4' : 'mb-6'}`}>
+          <h3 className={`font-bold text-white mb-1 ${isMobileDevice() ? 'text-lg' : 'text-2xl'}`}>{proposal.player_name}</h3>
           {proposal.destination && (
-            <p className="text-3xl font-bold text-blue-300 mb-2">{proposal.destination}</p>
+            <p className={`font-bold text-blue-300 mb-1 ${isMobileDevice() ? 'text-xl' : 'text-3xl mb-2'}`}>{proposal.destination}</p>
           )}
           {proposal.dates && (
-            <p className="text-blue-200 mb-4">{proposal.dates}</p>
+            <p className={`text-blue-200 ${isMobileDevice() ? 'mb-2 text-sm' : 'mb-4'}`}>{proposal.dates}</p>
           )}
-          <p className="text-4xl font-bold text-white">{proposal.price} €</p>
+          <p className={`font-bold text-white ${isMobileDevice() ? 'text-2xl' : 'text-4xl'}`}>{proposal.price} €</p>
         </div>
 
         <a
@@ -153,15 +161,16 @@ export default function VotingScreen({
 
   const selectedProposal = proposals.find(p => p.id === selectedProposalId);
 
+  const isMobile = isMobileDevice();
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] p-6">
+    <div className={`min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] ${isMobile ? 'p-4 pb-28' : 'p-6'}`}>
       <div className="max-w-6xl mx-auto">
-        <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">
+        <button onClick={onBack} className={`text-blue-300 hover:text-white transition-colors ${isMobile ? 'mb-4' : 'mb-6'}`}>
           ← Volver al cuadro
         </button>
 
         {/* Encabezado */}
-        <div className="text-center mb-8">
+        <div className={`text-center ${isMobile ? 'mb-4' : 'mb-8'}`}>
           {everyoneVoted ? (
             <div className="inline-flex items-center justify-center gap-3 bg-green-500/20 backdrop-blur-sm rounded-2xl px-8 py-4 border border-green-400/50 mb-4 animate-pulse">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
@@ -195,37 +204,38 @@ export default function VotingScreen({
         </div>
 
         {/* Tarjetas de votación */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isMobile ? 'gap-4 mb-4' : 'gap-8 mb-6'}`}>
           {renderProposalCard(player1Proposal, player1Votes)}
           {renderProposalCard(player2Proposal, player2Votes)}
         </div>
 
-        {/* Barra de confirmación (solo visible cuando hay selección no confirmada) */}
+        {/* Confirmar voto - compacto en móvil, integrado */}
         {selectedProposalId && !myConfirmedVote && (
-          <div className="sticky bottom-6 z-10 mb-6">
-            <div className="bg-yellow-500/20 border-2 border-yellow-400/60 rounded-2xl p-5 flex items-center justify-between gap-4 backdrop-blur-sm shadow-2xl shadow-yellow-500/20">
-              <div>
-                <div className="text-yellow-300 text-sm font-bold mb-1">Vas a votar por:</div>
-                <div className="text-white text-xl font-black">
+          <div className={`fixed left-1/2 -translate-x-1/2 z-[100] ${isMobileDevice() ? 'bottom-20' : 'bottom-8'}`}>
+            <div className={`flex items-center gap-3 backdrop-blur-md bg-[#001B44]/95 border border-yellow-400/40 rounded-2xl shadow-xl ${isMobileDevice() ? 'px-4 py-3' : 'px-6 py-4'}`}>
+              <div className="min-w-0 flex-1">
+                <div className="text-yellow-300 text-xs font-semibold truncate">
                   {selectedProposal?.destination || selectedProposal?.player_name}
                 </div>
-                <div className="text-yellow-200/60 text-xs mt-1">
-                  Puedes cambiar la selección hasta confirmar
-                </div>
+                {!isMobileDevice() && (
+                  <div className="text-white/60 text-xs mt-0.5">Puedes cambiar hasta confirmar</div>
+                )}
               </div>
               <button
                 onClick={handleConfirm}
-                className="flex-shrink-0 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-black text-lg px-8 py-4 rounded-xl hover:shadow-xl hover:shadow-yellow-500/50 hover:scale-105 transition-all"
+                className={`flex-shrink-0 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition-all active:scale-95 ${
+                  isMobileDevice() ? 'px-5 py-2.5 text-sm' : 'px-6 py-3 text-base'
+                }`}
               >
-                🔒 Confirmar voto
+                ✓ Confirmar
               </button>
             </div>
           </div>
         )}
 
         {/* Estado de votaciones */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <h3 className="text-lg font-bold text-white mb-4">Estado de votaciones</h3>
+        <div className={`bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 ${isMobile ? 'p-4' : 'p-6'}`}>
+          <h3 className={`font-bold text-white ${isMobile ? 'text-base mb-3' : 'text-lg mb-4'}`}>Estado de votaciones</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {participants.map((participant) => {
               const hasConfirmed = votes.some(v => v.voter_name === participant);

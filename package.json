@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "mobile": "vite build && vite preview --host --port 4173",
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {

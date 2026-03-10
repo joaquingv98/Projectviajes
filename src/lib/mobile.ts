@@ -1,8 +1,26 @@
 /** Prefijo de los jugadores bot en modo solo móvil */
 export const BOT_PREFIX = 'Oponente ';
 
-export function isBot(name: string): boolean {
-  return name.startsWith(BOT_PREFIX);
+const SOLO_BOTS_KEY = 'soloModeBots_';
+
+export function isBot(name: string, tournamentId?: string): boolean {
+  if (name.startsWith(BOT_PREFIX)) return true;
+  if (tournamentId && typeof sessionStorage !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem(SOLO_BOTS_KEY + tournamentId);
+      if (stored) {
+        const bots: string[] = JSON.parse(stored);
+        return bots.includes(name);
+      }
+    } catch { /* ignore */ }
+  }
+  return false;
+}
+
+export function setSoloModeBots(tournamentId: string, botNames: string[]) {
+  try {
+    sessionStorage.setItem(SOLO_BOTS_KEY + tournamentId, JSON.stringify(botNames));
+  } catch { /* ignore */ }
 }
 
 export function isMobileDevice(): boolean {

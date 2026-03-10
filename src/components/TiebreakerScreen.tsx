@@ -11,6 +11,7 @@ interface TiebreakerScreenProps {
   currentUser: string | null;
   onAdvancePhase: () => void;
   onVote: (proposalId: string) => void;
+  onEnsureBotsVoted: () => void;
   onBack: () => void;
 }
 
@@ -22,9 +23,15 @@ export default function TiebreakerScreen({
   currentUser,
   onAdvancePhase,
   onVote,
+  onEnsureBotsVoted,
   onBack,
 }: TiebreakerScreenProps) {
   const [timeRemaining, setTimeRemaining] = useState(0);
+
+  // Los bots votan automáticamente en la fase tiebreak_vote
+  useEffect(() => {
+    if (match.status === 'tiebreak_vote') onEnsureBotsVoted();
+  }, [match.id, match.status, onEnsureBotsVoted]);
 
   // Roulette animation
   const [rouletteDisplay, setRouletteDisplay] = useState('');
@@ -51,7 +58,7 @@ export default function TiebreakerScreen({
   useEffect(() => {
     if (phase !== 'tiebreak_d1' && phase !== 'tiebreak_d2') return;
     const defendingPlayer = phase === 'tiebreak_d1' ? p1 : p2;
-    if (!isBot(defendingPlayer)) return;
+    if (!isBot(defendingPlayer, match.tournament_id)) return;
     const t = setTimeout(() => onAdvancePhase(), 2500);
     return () => clearTimeout(t);
   }, [phase, p1, p2, onAdvancePhase]);
@@ -137,12 +144,20 @@ export default function TiebreakerScreen({
               <p className="text-white/60 mb-6">
                 Tienes {formatTime(timeRemaining)} para argumentar el precio, las fechas y la experiencia.
               </p>
-              <button
-                onClick={onAdvancePhase}
-                className="px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-black text-lg rounded-xl hover:shadow-2xl hover:shadow-yellow-500/40 hover:scale-[1.02] transition-all"
-              >
-                He terminado mi defensa ➤
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <button
+                  onClick={onAdvancePhase}
+                  className="px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-black text-lg rounded-xl hover:shadow-2xl hover:shadow-yellow-500/40 hover:scale-[1.02] transition-all"
+                >
+                  He terminado mi defensa ➤
+                </button>
+                <button
+                  onClick={onAdvancePhase}
+                  className="px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 transition-all"
+                >
+                  ⏭ Skip
+                </button>
+              </div>
             </div>
           ) : (
             <div className="bg-white/5 border border-white/10 rounded-xl p-10 mb-6 text-center">
@@ -152,10 +167,16 @@ export default function TiebreakerScreen({
               </div>
               <p className="text-blue-300">Escucha su argumento...</p>
               {phase === 'tiebreak_d2' && (
-                <p className="text-white/40 text-sm mt-4">
+                <p className="text-white/40 text-sm mt-2">
                   Fase 2 de 2 — después vendrá la segunda votación
                 </p>
               )}
+              <button
+                onClick={onAdvancePhase}
+                className="mt-4 px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 transition-all"
+              >
+                ⏭ Skip
+              </button>
             </div>
           )}
 

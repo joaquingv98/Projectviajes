@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Match } from '../lib/supabase';
-import { Trophy, Clock, CheckCircle, Copy, Check } from 'lucide-react';
+import { Match, TIEBREAKER_PHASES } from '../lib/supabase';
+import { Trophy, Clock, CheckCircle, Copy, Check, Share2, Vote } from 'lucide-react';
+import { isMobileDevice } from '../lib/mobile';
 
 interface BracketProps {
   matches: Match[];
@@ -23,6 +24,7 @@ export default function Bracket({
 }: BracketProps) {
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [shareExpanded, setShareExpanded] = useState(false);
 
   const [advanceNotif, setAdvanceNotif] = useState<{ name: string; toRound: string } | null>(null);
   const [notifVisible, setNotifVisible] = useState(false);
@@ -51,7 +53,14 @@ export default function Bracket({
   const semiMatches = matches.filter(m => m.round === 'semifinals');
   const finalMatch = matches.find(m => m.round === 'final');
 
-  const hasActiveMatch = matches.some(m => m.status === 'proposing' || m.status === 'voting');
+  const hasActiveMatch = matches.some(m =>
+    m.status === 'proposing' || m.status === 'voting' ||
+    TIEBREAKER_PHASES.includes(m.status as typeof TIEBREAKER_PHASES[number])
+  );
+
+  const votingMatch = matches.find(m => m.status === 'voting');
+  const tiebreakerMatch = matches.find(m => TIEBREAKER_PHASES.includes(m.status as typeof TIEBREAKER_PHASES[number]));
+  const proposingMatch = matches.find(m => m.status === 'proposing');
 
   // Siguiente partido a jugar: primero en orden (cuartos < semis < final) con jugadores conocidos
   const roundOrder: Record<string, number> = { quarterfinals: 1, semifinals: 2, final: 3 };
@@ -111,6 +120,7 @@ export default function Bracket({
     const cardStyle: React.CSSProperties = {
       position: 'relative',
       width: '100%',
+      minWidth: 180,
       borderRadius: 16,
       border: anyHighlighted
         ? '2px solid #facc15'
@@ -139,11 +149,11 @@ export default function Bracket({
         : isActive
         ? '0 0 30px rgba(96,165,250,0.3)'
         : 'none',
-      padding: '24px 28px',
+      padding: '16px 20px',
     };
 
     const nameStyle = (isWinner: boolean, name?: string | null): React.CSSProperties => ({
-      fontSize: 22,
+      fontSize: 'clamp(16px, 4vw, 22px)',
       fontWeight: 700,
       color: name && highlightedNames.has(name) ? '#facc15'
            : isWinner ? '#4ade80'
@@ -195,23 +205,29 @@ export default function Bracket({
 
   const labelStyle = (color = '#93c5fd'): React.CSSProperties => ({
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 'clamp(11px, 2.5vw, 13px)',
     fontWeight: 700,
     color,
     textTransform: 'uppercase',
-    letterSpacing: 4,
-    marginBottom: 24,
+    letterSpacing: 3,
+    marginBottom: 16,
   });
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #001B44 0%, #002855 50%, #003366 100%)', display: 'flex', flexDirection: 'column', padding: '20px 16px', paddingBottom: 80 }}>
       <style>{`
         @media (max-width: 768px) {
-          .bracket-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .bracket-mobile { flex-direction: column !important; align-items: stretch !important; width: 100% !important; gap: 20px !important; }
+          .bracket-mobile .bracket-round { flex: none !important; width: 100% !important; min-width: 0 !important; }
+          .bracket-mobile .bracket-connectors { display: none !important; }
+          .bracket-mobile .bracket-card { min-width: auto !important; }
+          .bracket-header-mobile { padding: 0 8px 16px !important; margin-bottom: 16px !important; }
+          .share-box-mobile { padding: 10px 14px !important; }
+          .bracket-card button { padding: 12px 16px !important; }
         }
       `}</style>
       {/* Cabecera */}
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+      <div className="bracket-header-mobile" style={{ textAlign: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 'clamp(28px, 6vw, 48px)', fontWeight: 800, color: 'white', marginBottom: 8, letterSpacing: 1 }}>
           Cuadro del Torneo
         </h1>
@@ -241,71 +257,118 @@ export default function Bracket({
           </button>
         )}
 
-        {/* Botón "Ir a mi partido" si hay un partido activo para este usuario */}
-        {hasActiveMatch && (() => {
-          const myMatch = matches.find(
-            m => (m.player1_name === currentUser || m.player2_name === currentUser) &&
-                 (m.status === 'proposing' || m.status === 'voting')
-          );
-          if (!myMatch) return null;
+        {/* Botón "Ir a votar" - todos deben votar */}
+        {votingMatch && (
+          <button
+            onClick={() => onMatchClick(votingMatch)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              background: 'linear-gradient(135deg, #16a34a, #15803d)',
+              color: 'white', fontWeight: 800, fontSize: 18,
+              padding: '14px 32px', borderRadius: 16, border: 'none',
+              cursor: 'pointer', marginBottom: 12,
+              boxShadow: '0 0 30px rgba(22,163,74,0.5)',
+            }}
+          >
+            <Vote style={{ width: 22, height: 22 }} />
+            ¡Ir a votar! {votingMatch.player1_name} vs {votingMatch.player2_name}
+          </button>
+        )}
+        {/* Botón "Ir a tiebreak" */}
+        {tiebreakerMatch && !votingMatch && (
+          <button
+            onClick={() => onMatchClick(tiebreakerMatch)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+              color: 'white', fontWeight: 800, fontSize: 18,
+              padding: '14px 32px', borderRadius: 16, border: 'none',
+              cursor: 'pointer', marginBottom: 12,
+              boxShadow: '0 0 30px rgba(234,88,12,0.5)',
+            }}
+          >
+            ▶ Minuto de oro / Tiebreak
+          </button>
+        )}
+        {/* Botón "Ir a mi partido" (proponer) - solo si es tu partido */}
+        {proposingMatch && (() => {
+          const isMine = currentUser && (proposingMatch.player1_name === currentUser || proposingMatch.player2_name === currentUser);
+          if (!isMine) return null;
           return (
             <button
-              onClick={() => onMatchClick(myMatch)}
+              onClick={() => onMatchClick(proposingMatch)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 10,
                 background: 'linear-gradient(135deg, #eab308, #ca8a04)',
                 color: '#000', fontWeight: 800, fontSize: 18,
                 padding: '14px 32px', borderRadius: 16, border: 'none',
-                cursor: 'pointer', marginBottom: 20,
+                cursor: 'pointer', marginBottom: 12,
                 boxShadow: '0 0 30px rgba(234,179,8,0.5)',
               }}
             >
-              ▶ Ir a mi partido
+              ▶ Ir a mi partido: enviar propuesta
             </button>
           );
         })()}
+        {/* Si hay proposing pero no es tuyo: botón para ver */}
+        {proposingMatch && !(currentUser && (proposingMatch.player1_name === currentUser || proposingMatch.player2_name === currentUser)) && (
+          <button
+            onClick={() => onMatchClick(proposingMatch)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
+              color: 'white', fontWeight: 600, fontSize: 16,
+              padding: '12px 24px', borderRadius: 16, cursor: 'pointer', marginBottom: 12,
+            }}
+          >
+            Ver partido en curso
+          </button>
+        )}
 
-        {/* Caja para compartir */}
-        <div style={{
-          display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 16, padding: '14px 20px', maxWidth: 520, width: '100%',
-        }}>
-          <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 }}>
-            Comparte este enlace con tus amigos
-          </span>
-          <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
-            <input
-              id="share-url-input"
-              readOnly
-              value={shareUrl}
-              onClick={e => (e.target as HTMLInputElement).select()}
-              style={{
-                flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 13,
-                fontFamily: 'monospace', cursor: 'text', outline: 'none',
-              }}
-            />
-            <button
-              onClick={handleCopy}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
-                background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)',
-                border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`,
-                color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
-              }}
-            >
-              {copied
-                ? <><Check style={{ width: 14, height: 14, color: '#4ade80' }} /> Copiado</>
-                : <><Copy style={{ width: 14, height: 14 }} /> Copiar</>
-              }
+        {/* Caja para compartir - colapsable en móvil */}
+        {isMobileDevice() ? (
+          shareExpanded ? (
+            <div className="share-box-mobile" style={{
+              display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 16, padding: '14px 20px', maxWidth: 520, width: '100%',
+            }}>
+              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 }}>
+                  Comparte
+                </span>
+                <button onClick={() => setShareExpanded(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: 18, cursor: 'pointer', padding: 4 }}>×</button>
+              </div>
+              <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
+                <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()}
+                  style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 12, fontFamily: 'monospace', cursor: 'text', outline: 'none' }} />
+                <button onClick={handleCopy} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  {copied ? <><Check style={{ width: 14, height: 14, color: '#4ade80' }} /> Copiado</> : <><Copy style={{ width: 14, height: 14 }} /> Copiar</>}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShareExpanded(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '10px 20px', color: '#93c5fd', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              <Share2 style={{ width: 18, height: 18 }} /> Compartir enlace
             </button>
+          )
+        ) : (
+          <div className="share-box-mobile" style={{
+            display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 16, padding: '14px 20px', maxWidth: 520, width: '100%',
+          }}>
+            <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 }}>Comparte este enlace con tus amigos</span>
+            <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
+              <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()}
+                style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 13, fontFamily: 'monospace', cursor: 'text', outline: 'none' }} />
+              <button onClick={handleCopy} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                {copied ? <><Check style={{ width: 14, height: 14, color: '#4ade80' }} /> Copiado</> : <><Copy style={{ width: 14, height: 14 }} /> Copiar</>}
+              </button>
+            </div>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>También puedes seleccionar y copiar el enlace manualmente</span>
           </div>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-            También puedes seleccionar y copiar el enlace manualmente
-          </span>
-        </div>
+        )}
       </div>
 
       {/* Overlay animación de avance */}
@@ -348,20 +411,20 @@ export default function Bracket({
       )}
 
       {/* Bracket */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
-        <div className="bracket-scroll" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 0, minWidth: 'min-content' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, overflow: 'auto' }}>
+        <div className="bracket-mobile" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 0, minWidth: 'min-content', justifyContent: 'center' }}>
 
           {tournamentSize === 8 && quarterMatches.length > 0 && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div className="bracket-round" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 200 }}>
               <div style={labelStyle()}>Cuartos de Final</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                {quarterMatches.map(m => <div key={m.id}>{renderCard(m)}</div>)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {quarterMatches.map(m => <div key={m.id} className="bracket-card">{renderCard(m)}</div>)}
               </div>
             </div>
           )}
 
           {tournamentSize === 8 && quarterMatches.length > 0 && (
-            <div style={{ width: 48, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', alignSelf: 'stretch', marginTop: 40, paddingTop: 60, paddingBottom: 20 }}>
+            <div className="bracket-connectors" style={{ width: 48, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', alignSelf: 'stretch', marginTop: 40, paddingTop: 60, paddingBottom: 20 }}>
               <div style={{ height: 80, borderTop: '2px solid rgba(255,255,255,0.25)', borderRight: '2px solid rgba(255,255,255,0.25)', borderRadius: '0 8px 0 0' }} />
               <div style={{ height: 80, borderRight: '2px solid rgba(255,255,255,0.25)', borderBottom: '2px solid rgba(255,255,255,0.25)', borderRadius: '0 0 8px 0' }} />
               <div style={{ height: 80, borderTop: '2px solid rgba(255,255,255,0.25)', borderRight: '2px solid rgba(255,255,255,0.25)', borderRadius: '0 8px 0 0' }} />
@@ -370,27 +433,27 @@ export default function Bracket({
           )}
 
           {semiMatches.length > 0 && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div className="bracket-round" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 200 }}>
               <div style={labelStyle()}>Semifinales</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
-                {semiMatches.map(m => <div key={m.id}>{renderCard(m)}</div>)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                {semiMatches.map(m => <div key={m.id} className="bracket-card">{renderCard(m)}</div>)}
               </div>
             </div>
           )}
 
           {semiMatches.length > 0 && (
-            <div style={{ width: 48, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignSelf: 'stretch', marginTop: 40 }}>
+            <div className="bracket-connectors" style={{ width: 48, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignSelf: 'stretch', marginTop: 40 }}>
               <div style={{ height: 90, borderTop: '2px solid rgba(255,255,255,0.25)', borderRight: '2px solid rgba(255,255,255,0.25)', borderRadius: '0 8px 0 0' }} />
               <div style={{ height: 90, borderRight: '2px solid rgba(255,255,255,0.25)', borderBottom: '2px solid rgba(255,255,255,0.25)', borderRadius: '0 0 8px 0' }} />
             </div>
           )}
 
           {finalMatch && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div className="bracket-round" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 200 }}>
               <div style={labelStyle('#facc15')}>✦ Final ✦</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                <div style={{ flex: 1 }}>{renderCard(finalMatch)}</div>
-                <Trophy style={{ width: 64, height: 64, color: '#facc15', flexShrink: 0, filter: 'drop-shadow(0 0 16px rgba(250,204,21,0.7))' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: '100%' }}>{renderCard(finalMatch)}</div>
+                <Trophy style={{ width: 40, height: 40, color: '#facc15', flexShrink: 0, filter: 'drop-shadow(0 0 16px rgba(250,204,21,0.7))' }} />
               </div>
             </div>
           )}

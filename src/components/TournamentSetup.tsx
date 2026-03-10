@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Users, LogIn, Smartphone } from 'lucide-react';
-import { isMobileDevice, getBotNames } from '../lib/mobile';
+import { isMobileDevice } from '../lib/mobile';
 
 interface TournamentSetupProps {
   onStart: (participants: string[], currentUserForMobile?: string) => void;
@@ -15,10 +15,27 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const [joinCode, setJoinCode] = useState('');
   const [soloPlayerName, setSoloPlayerName] = useState('');
   const [soloNumParticipants, setSoloNumParticipants] = useState<2 | 4 | 8>(4);
+  const [soloOpponentNames, setSoloOpponentNames] = useState<string[]>(['', '', '']);
 
   const handleNumChange = (num: 2 | 4 | 8) => {
     setNumParticipants(num);
     setNames(Array(num).fill(''));
+  };
+
+  const handleSoloNumChange = (num: 2 | 4 | 8) => {
+    setSoloNumParticipants(num);
+    const count = num - 1;
+    setSoloOpponentNames(prev => {
+      const next = prev.slice(0, count);
+      while (next.length < count) next.push('');
+      return next;
+    });
+  };
+
+  const handleSoloOpponentChange = (index: number, value: string) => {
+    const next = [...soloOpponentNames];
+    next[index] = value;
+    setSoloOpponentNames(next);
   };
 
   const handleNameChange = (index: number, value: string) => {
@@ -37,8 +54,8 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const handleSoloStart = () => {
     const myName = soloPlayerName.trim();
     if (!myName) return;
-    const bots = getBotNames(soloNumParticipants - 1);
-    const participants = [myName, ...bots];
+    const opponents = soloOpponentNames.slice(0, soloNumParticipants - 1).map((n, i) => n.trim() || `Oponente ${i + 1}`);
+    const participants = [myName, ...opponents];
     onStart(participants, myName);
   };
 
@@ -118,13 +135,13 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                   className="w-full px-5 py-4 bg-white/10 border border-white/20 rounded-xl text-white text-base placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
               </div>
-              <div className="mb-8">
+              <div className="mb-6">
                 <label className="block text-white text-sm font-medium mb-3">Tamaño del torneo</label>
                 <div className="grid grid-cols-3 gap-3">
                   {[2, 4, 8].map((num) => (
                     <button
                       key={num}
-                      onClick={() => setSoloNumParticipants(num as 2 | 4 | 8)}
+                      onClick={() => handleSoloNumChange(num as 2 | 4 | 8)}
                       className={`py-4 px-4 rounded-xl font-semibold text-lg transition-all ${
                         soloNumParticipants === num
                           ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/50'
@@ -133,6 +150,21 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                     >
                       {num}
                     </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-8">
+                <label className="block text-white text-sm font-medium mb-3">Nombres de los oponentes</label>
+                <div className="space-y-3">
+                  {Array.from({ length: soloNumParticipants - 1 }).map((_, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      value={soloOpponentNames[i] ?? ''}
+                      onChange={(e) => handleSoloOpponentChange(i, e.target.value)}
+                      placeholder={`Oponente ${i + 1}`}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
                   ))}
                 </div>
               </div>

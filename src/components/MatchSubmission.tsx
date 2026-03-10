@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Match, Proposal } from '../lib/supabase';
 import { Plane, Send, Clock, ChevronLeft, ChevronRight, CalendarDays, Globe } from 'lucide-react';
+import { isMobileDevice } from '../lib/mobile';
 
 interface MatchSubmissionProps {
   match: Match;
@@ -59,25 +60,25 @@ function CalendarMonth({ year, month, dateFrom, dateTo, hovered, today, onSelect
   const effectiveEnd = dateTo || hovered;
 
   return (
-    <div className="w-72">
-      <div className="text-center text-white font-bold mb-3 text-lg">
+    <div className="w-full min-w-[260px] max-w-[320px]">
+      <div className="text-center text-white font-bold mb-3 text-base sm:text-lg">
         {MONTHS[month]} {year}
       </div>
-      <div className="grid grid-cols-7 mb-2">
+      <div className="grid grid-cols-7 mb-2 gap-0.5">
         {DAYS.map(d => (
           <div key={d} className="text-center text-xs text-blue-300/60 font-bold py-1">{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 gap-1">
         {cells.map((date, i) => {
-          if (!date) return <div key={i} />;
+          if (!date) return <div key={i} className="aspect-square" />;
 
           const isPast = date < today;
           const isStart = date === dateFrom;
           const isEnd = date === dateTo || (date === hovered && !dateTo && dateFrom && date > dateFrom);
           const inRange = !!(dateFrom && effectiveEnd && date > dateFrom && date < effectiveEnd && date >= dateFrom);
 
-          let cellClass = 'relative flex items-center justify-center h-9 text-sm transition-all ';
+          let cellClass = 'relative flex items-center justify-center text-sm transition-all aspect-square min-w-[36px] min-h-[36px] ';
 
           if (isPast) {
             cellClass += 'text-white/20 cursor-not-allowed ';
@@ -92,20 +93,15 @@ function CalendarMonth({ year, month, dateFrom, dateTo, hovered, today, onSelect
           return (
             <div
               key={date}
-              className={`${inRange ? 'bg-blue-500/15' : ''} ${
-                isStart ? 'rounded-l-full' : ''
-              } ${isEnd && dateTo ? 'rounded-r-full' : ''}`}
+              className={`${inRange ? 'bg-blue-500/15' : ''} ${isStart ? 'rounded-l-full' : ''} ${isEnd && dateTo ? 'rounded-r-full' : ''}`}
             >
               <button
                 type="button"
                 disabled={isPast}
                 onClick={() => !isPast && onSelect(date)}
                 onMouseEnter={() => !isPast && onHover(date)}
-                className={`${cellClass} w-full h-9 rounded-full ${
-                  isStart || isEnd
-                    ? 'bg-blue-400 shadow-lg shadow-blue-400/50'
-                    : ''
-                }`}
+                onTouchEnd={() => !isPast && onHover(date)}
+                className={`${cellClass} w-full rounded-full ${isStart || isEnd ? 'bg-blue-400 shadow-lg shadow-blue-400/50' : ''}`}
               >
                 {parseInt(date.split('-')[2])}
               </button>
@@ -205,42 +201,48 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
         )}
       </button>
 
-      {/* Dropdown calendario */}
+      {/* Dropdown calendario - z-[10001] para quedar encima del MusicPlayer */}
       {open && (
-        <div className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[620px]"
+        <div className="absolute z-[10001] mt-2 left-1/2 -translate-x-1/2 bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[620px]"
         >
           {/* Instrucción */}
           <p className="text-blue-300/70 text-xs text-center mb-4 uppercase tracking-widest">
             {!dateFrom ? 'Selecciona la fecha de ida' : !dateTo ? 'Selecciona la fecha de vuelta' : '¡Fechas seleccionadas!'}
           </p>
 
-          {/* Navegación */}
-          <div className="flex items-start gap-8">
-            <button type="button" onClick={prevM} className="text-white/50 hover:text-white mt-1 transition-colors">
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <CalendarMonth
-              year={viewYear} month={viewMonth}
-              dateFrom={dateFrom} dateTo={dateTo}
-              hovered={hovered} today={today}
-              onSelect={handleSelect}
-              onHover={setHovered}
-            />
-
-            <div className="w-px bg-blue-500/20 self-stretch mx-1" />
-
-            <CalendarMonth
-              year={year2} month={month2}
-              dateFrom={dateFrom} dateTo={dateTo}
-              hovered={hovered} today={today}
-              onSelect={handleSelect}
-              onHover={setHovered}
-            />
-
-            <button type="button" onClick={nextM} className="text-white/50 hover:text-white mt-1 transition-colors">
-              <ChevronRight className="w-5 h-5" />
-            </button>
+          {/* Navegación - un mes en móvil, dos en desktop */}
+          <div className={`flex ${isMobileDevice() ? 'flex-col items-center' : 'items-start gap-8'}`}>
+            {isMobileDevice() ? (
+              <>
+                <div className="flex items-center justify-between w-full mb-2">
+                  <button type="button" onClick={prevM} className="text-white/50 hover:text-white p-2 transition-colors">
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button type="button" onClick={nextM} className="text-white/50 hover:text-white p-2 transition-colors">
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </div>
+                <CalendarMonth
+                  year={viewYear} month={viewMonth}
+                  dateFrom={dateFrom} dateTo={dateTo}
+                  hovered={hovered} today={today}
+                  onSelect={handleSelect}
+                  onHover={setHovered}
+                />
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={prevM} className="text-white/50 hover:text-white mt-1 transition-colors">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <CalendarMonth year={viewYear} month={viewMonth} dateFrom={dateFrom} dateTo={dateTo} hovered={hovered} today={today} onSelect={handleSelect} onHover={setHovered} />
+                <div className="w-px bg-blue-500/20 self-stretch mx-1" />
+                <CalendarMonth year={year2} month={month2} dateFrom={dateFrom} dateTo={dateTo} hovered={hovered} today={today} onSelect={handleSelect} onHover={setHovered} />
+                <button type="button" onClick={nextM} className="text-white/50 hover:text-white mt-1 transition-colors">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Resumen */}

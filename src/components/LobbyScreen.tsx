@@ -14,7 +14,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
   const [copied, setCopied] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState<string[]>([]);
 
-  const hasBots = tournament.participants.some(p => isBot(p));
+  const hasBots = tournament.participants.some(p => isBot(p, tournament.id));
   const totalParticipants = tournament.participants.length;
   const allJoined = hasBots
     ? true
@@ -94,7 +94,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
             {tournament.participants.map((name) => {
               const hasJoined = hasBots || connectedUsers.includes(name);
               const isMe = name === currentUser;
-              const isBotPlayer = isBot(name);
+              const isBotPlayer = isBot(name, tournament.id);
               return (
                 <div
                   key={name}
