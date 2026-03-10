@@ -334,7 +334,7 @@ export default function MatchSubmission({
   // Ya envié propuesta
   if (myProposal) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] p-6">
+      <div className="min-h-screen p-6">
         <div className="max-w-2xl mx-auto">
           <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
           <div className="text-center mb-10">
@@ -386,7 +386,7 @@ export default function MatchSubmission({
   // No es jugador de este partido
   if (!isMyTurn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-6">
+      <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center max-w-lg">
           <div className="inline-flex items-center justify-center w-24 h-24 bg-blue-500/20 rounded-full mb-6">
             <Clock className="w-12 h-12 text-blue-400 animate-pulse" />
@@ -404,7 +404,7 @@ export default function MatchSubmission({
 
   // Formulario del jugador
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-4xl mx-auto">
         <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
 

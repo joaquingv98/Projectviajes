@@ -99,11 +99,19 @@ export default function TiebreakerScreen({
     const isMyTurn = currentUser === defendingPlayer;
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] p-6">
+      <div className="min-h-screen p-6">
         <div className="max-w-4xl mx-auto">
-          <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">
-            ← Volver al cuadro
-          </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <button onClick={onBack} className="text-blue-300 hover:text-white transition-colors">
+              ← Volver al cuadro
+            </button>
+            <button
+              onClick={onAdvancePhase}
+              className="px-4 py-2 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 hover:text-white transition-all flex items-center gap-2"
+            >
+              ⏭ Saltar minuto de defensa
+            </button>
+          </div>
 
           {/* Cabecera */}
           <div className="text-center mb-8">
@@ -153,9 +161,9 @@ export default function TiebreakerScreen({
                 </button>
                 <button
                   onClick={onAdvancePhase}
-                  className="px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 transition-all"
+                  className="px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 hover:text-white transition-all"
                 >
-                  ⏭ Skip
+                  ⏭ Saltar defensa
                 </button>
               </div>
             </div>
@@ -173,9 +181,9 @@ export default function TiebreakerScreen({
               )}
               <button
                 onClick={onAdvancePhase}
-                className="mt-4 px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 transition-all"
+                className="mt-4 px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 hover:text-white transition-all"
               >
-                ⏭ Skip
+                ⏭ Saltar defensa
               </button>
             </div>
           )}
@@ -201,7 +209,7 @@ export default function TiebreakerScreen({
   if (phase === 'tiebreak_vote') {
     const canVote = !myVote;
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] p-6">
+      <div className="min-h-screen p-6">
         <div className="max-w-6xl mx-auto">
           <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">
             ← Volver al cuadro
@@ -289,7 +297,7 @@ export default function TiebreakerScreen({
   // ─────────────────────────────────────────
   if (phase === 'tiebreak_roulette') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-6">
+      <div className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center max-w-2xl mx-auto">
           <div className="text-7xl mb-6">🎰</div>
           <div className="text-white/60 text-lg font-bold uppercase tracking-widest mb-2" style={{ letterSpacing: 8 }}>

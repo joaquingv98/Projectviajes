@@ -214,7 +214,7 @@ export default function Bracket({
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #001B44 0%, #002855 50%, #003366 100%)', display: 'flex', flexDirection: 'column', padding: '20px 16px', paddingBottom: 80 }}>
+    <div style={{ minHeight: '100vh', background: 'transparent', display: 'flex', flexDirection: 'column', padding: '20px 16px', paddingBottom: 80 }}>
       <style>{`
         @media (max-width: 768px) {
           .bracket-mobile { flex-direction: column !important; align-items: stretch !important; width: 100% !important; gap: 20px !important; }

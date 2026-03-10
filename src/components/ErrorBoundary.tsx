@@ -29,7 +29,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         <div
           style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #001B44 0%, #002855 50%, #003366 100%)',
+            background: 'transparent',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',

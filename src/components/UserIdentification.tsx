@@ -60,7 +60,7 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-8">
+    <div className="min-h-screen flex items-center justify-center p-8">
       <div className="w-full max-w-lg">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-24 h-24 bg-blue-500/20 rounded-full mb-6">

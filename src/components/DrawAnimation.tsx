@@ -88,7 +88,7 @@ export default function DrawAnimation({ participants, onComplete }: DrawAnimatio
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       <div className={`w-full max-w-4xl ${isMobile ? 'py-2' : ''}`}>
         <div className={`text-center ${isMobile ? 'mb-4' : 'mb-12'}`}>
           <div className={`inline-flex items-center justify-center bg-blue-500/20 rounded-full ${isMobile ? 'w-14 h-14 mb-4' : 'w-20 h-20 mb-6'}`}>

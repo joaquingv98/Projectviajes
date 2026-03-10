@@ -63,7 +63,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-2xl">
 
         {/* Header */}

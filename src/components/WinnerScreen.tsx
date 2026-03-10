@@ -8,7 +8,7 @@ interface WinnerScreenProps {
 
 export default function WinnerScreen({ winningProposal, onNewTournament }: WinnerScreenProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-6">
+    <div className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-2xl w-full">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full mb-6 animate-bounce">

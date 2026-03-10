@@ -163,7 +163,7 @@ export default function VotingScreen({
 
   const isMobile = isMobileDevice();
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] ${isMobile ? 'p-4 pb-28' : 'p-6'}`}>
+    <div className={`min-h-screen ${isMobile ? 'p-4 pb-28' : 'p-6'}`}>
       <div className="max-w-6xl mx-auto">
         <button onClick={onBack} className={`text-blue-300 hover:text-white transition-colors ${isMobile ? 'mb-4' : 'mb-6'}`}>
           ← Volver al cuadro

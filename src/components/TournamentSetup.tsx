@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, LogIn, Smartphone } from 'lucide-react';
+import { Users, LogIn, Smartphone, Monitor } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
 
 interface TournamentSetupProps {
@@ -69,7 +69,7 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const allNamesFilled = names.every(name => name.trim() !== '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001B44] via-[#002855] to-[#003366] flex items-center justify-center p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-4xl">
         {/* Header */}
         <div className="text-center mb-14">
@@ -82,19 +82,17 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-white/5 p-1.5 rounded-2xl border border-white/10 overflow-x-auto">
-          {isMobile && (
-            <button
-              onClick={() => setTab('solo')}
-              className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-xl font-semibold text-base sm:text-lg transition-all flex items-center justify-center gap-2 ${
-                tab === 'solo'
-                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40'
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              <Smartphone className="w-5 h-5" />
-              Jugar vs máquina
-            </button>
-          )}
+          <button
+            onClick={() => setTab('solo')}
+            className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-xl font-semibold text-base sm:text-lg transition-all flex items-center justify-center gap-2 ${
+              tab === 'solo'
+                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            {isMobile ? <Smartphone className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
+            Jugar vs máquina
+          </button>
           <button
             onClick={() => setTab('create')}
             className={`flex-1 min-w-0 py-3 px-4 sm:px-6 rounded-xl font-semibold text-base sm:text-lg transition-all ${
@@ -123,7 +121,7 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
           {tab === 'solo' ? (
             <div className="max-w-lg mx-auto">
               <p className="text-blue-200 text-base sm:text-lg mb-6 text-center">
-                Elige tu nombre y juega contra oponentes simulados. Ideal para probar en el móvil.
+                Elige tu nombre y juega contra oponentes simulados. Ideal para probar la aplicación de forma ágil.
               </p>
               <div className="mb-6">
                 <label className="block text-white text-sm font-medium mb-3">Tu nombre</label>
@@ -177,7 +175,7 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                     : 'bg-white/10 text-white/40 cursor-not-allowed'
                 }`}
               >
-                <Smartphone className="w-6 h-6" />
+                {isMobile ? <Smartphone className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
                 ¡Jugar contra la máquina!
               </button>
             </div>
