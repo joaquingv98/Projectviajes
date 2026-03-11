@@ -21,8 +21,8 @@ function App() {
   const [recentWinner, setRecentWinner] = useState<{ name: string; round: string } | null>(null);
 
   const onDataLoaded = useAutoNavigate(state, setState, currentUser, setRecentWinner);
-  const onTournamentCompleted = useCallback((winningProposalId: string) => {
-    setState({ screen: 'winner', winningProposalId });
+  const onTournamentCompleted = useCallback((winningProposalId: string, tournamentId: string) => {
+    setState({ screen: 'winner', winningProposalId, tournamentId });
   }, []);
 
   const tournamentId = 'tournamentId' in state ? state.tournamentId : undefined;
@@ -254,6 +254,7 @@ function App() {
       return (
         <WinnerScreen
           winningProposal={winningProposal}
+          participants={tournament?.participants ?? []}
           onNewTournament={handleNewTournament}
         />
       );

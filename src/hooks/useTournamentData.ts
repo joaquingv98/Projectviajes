@@ -8,11 +8,11 @@ type OnDataLoaded = (
   tournamentId: string
 ) => void;
 
-type OnTournamentCompleted = (winningProposalId: string) => void;
+type OnTournamentCompleted = (winningProposalId: string, tournamentId: string) => void;
 
 function getTournamentIdFromScreen(screen: string, tournamentId?: string): string | null {
   if (!tournamentId) return null;
-  if (['setup', 'identify', 'winner'].includes(screen)) return null;
+  if (['setup', 'identify'].includes(screen)) return null;
   return tournamentId;
 }
 
@@ -58,7 +58,7 @@ export function useTournamentData(
     }
 
     if (tournamentData?.status === 'completed' && tournamentData.winner_proposal_id && onTournamentCompleted) {
-      onTournamentCompleted(tournamentData.winner_proposal_id);
+      onTournamentCompleted(tournamentData.winner_proposal_id, tid);
     }
   }, [onDataLoaded, onTournamentCompleted]);
 

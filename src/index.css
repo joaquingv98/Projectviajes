@@ -62,24 +62,24 @@
   /* CTA principal: gradiente amarillo/dorado como referencia */
   .btn-primary {
     @apply font-bold rounded-xl transition-all inline-flex items-center justify-center gap-2;
-    background: linear-gradient(135deg, #eab308 0%, #ca8a04 50%, #a16207 100%);
+    background: linear-gradient(135deg, #facc15 0%, #eab308 50%, #ca8a04 100%);
     color: #000;
-    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.35);
+    box-shadow: 0 4px 20px rgba(250, 204, 21, 0.4);
   }
   .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(135deg, #facc15 0%, #eab308 50%, #ca8a04 100%);
-    box-shadow: 0 6px 28px rgba(250, 204, 21, 0.45);
+    background: linear-gradient(135deg, #fde047 0%, #facc15 50%, #eab308 100%);
+    box-shadow: 0 6px 28px rgba(253, 224, 71, 0.5);
     transform: translateY(-1px);
   }
-  /* Botón secundario: blanco con texto oscuro */
+  /* Botón secundario: blanco con tinte amarillento suave */
   .btn-secondary {
     @apply font-semibold rounded-xl transition-all;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(254, 252, 232, 0.98);
     color: #0f172a;
   }
   .btn-secondary:hover {
-    background: #fff;
-    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+    background: rgb(254, 252, 232);
+    box-shadow: 0 4px 20px rgba(254, 252, 232, 0.3);
   }
   /* Input moderno */
   .input-modern {

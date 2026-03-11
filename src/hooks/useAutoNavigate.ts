@@ -10,7 +10,7 @@ export type AppState =
   | { screen: 'match'; tournamentId: string; matchId: string }
   | { screen: 'voting'; tournamentId: string; matchId: string }
   | { screen: 'tiebreak'; tournamentId: string; matchId: string }
-  | { screen: 'winner'; winningProposalId: string };
+  | { screen: 'winner'; winningProposalId: string; tournamentId: string };
 
 export function useAutoNavigate(
   state: AppState,
