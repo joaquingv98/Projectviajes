@@ -11,6 +11,7 @@ Adaptar la pantalla inicial del torneo a una estética más premium y profesiona
 - [x] Mostrar un único mes en el selector de fechas del viaje
 - [x] Eliminar el botón flotante blanco de la esquina inferior izquierda
 - [x] Compactar el `setup` en móvil eliminando bloques informativos y acercando el inicio del torneo
+- [x] Actualizar el titulo y subtitulo del hero manteniendo el diseño actual
 
 ## Tareas
 

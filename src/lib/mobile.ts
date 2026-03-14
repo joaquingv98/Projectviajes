@@ -1,3 +1,5 @@
+import { getParticipantIdentity } from './participantIdentity';
+
 /** Prefijo de los jugadores bot en modo solo móvil */
 export const BOT_PREFIX = 'Oponente ';
 
@@ -10,8 +12,11 @@ export function isBot(name: string, tournamentId?: string): boolean {
       const stored = sessionStorage.getItem(SOLO_BOTS_KEY + tournamentId);
       if (stored) {
         const bots: string[] = JSON.parse(stored);
-        return bots.includes(name);
+        if (bots.includes(name)) return true;
       }
+      // Fallback: usar botTokens de participantIdentity (persiste en sesión)
+      const identity = getParticipantIdentity(tournamentId);
+      if (identity?.botTokens && name in identity.botTokens) return true;
     } catch { /* ignore */ }
   }
   return false;

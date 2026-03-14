@@ -7,7 +7,7 @@ interface TiebreakerScreenProps {
   match: Match;
   proposals: Proposal[];
   votes: Vote[];
-  participants: string[];
+  voters: string[];
   currentUser: string | null;
   onAdvancePhase: () => void;
   onVote: (proposalId: string) => void;
@@ -19,7 +19,7 @@ export default function TiebreakerScreen({
   match,
   proposals,
   votes,
-  participants,
+  voters,
   currentUser,
   onAdvancePhase,
   onVote,
@@ -63,28 +63,28 @@ export default function TiebreakerScreen({
     return () => clearTimeout(t);
   }, [phase, p1, p2, match.tournament_id, onAdvancePhase]);
 
-  // Reset roulette state when phase changes to roulette
+  // Ruleta: rotación real hasta ganador
+  const [rouletteDegrees, setRouletteDegrees] = useState(0);
   useEffect(() => {
     if (phase !== 'tiebreak_roulette') return;
     setRouletteFinished(false);
     setRouletteDisplay('');
+    setRouletteDegrees(0);
     if (!match.winner_name) return;
 
-    const names = [p1, p2];
-    let count = 0;
-    let delay = 80;
-    const spin = () => {
-      setRouletteDisplay(names[count % 2]);
-      count++;
-      if (count < 22) {
-        delay = Math.min(delay * 1.18, 550);
-        setTimeout(spin, delay);
-      } else {
+    const winnerIsP1 = match.winner_name === p1;
+    const fullSpins = 5;
+    const baseDegrees = fullSpins * 360;
+    const finalOffset = winnerIsP1 ? 0 : 180;
+    const totalDegrees = baseDegrees + finalOffset;
+
+    const t = setTimeout(() => {
+      setRouletteDegrees(totalDegrees);
+      setTimeout(() => {
         setRouletteDisplay(match.winner_name!);
-        setTimeout(() => setRouletteFinished(true), 700);
-      }
-    };
-    const t = setTimeout(spin, 500);
+        setRouletteFinished(true);
+      }, 3200);
+    }, 300);
     return () => clearTimeout(t);
   }, [phase, p1, p2, match.winner_name]);
 
@@ -105,14 +105,16 @@ export default function TiebreakerScreen({
             <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className="text-blue-300 hover:text-white transition-colors">
               ← Volver al cuadro
             </button>
-            <button
-              type="button"
-              onClick={onAdvancePhase}
-              aria-label="Saltar minuto de defensa"
-              className="btn-secondary px-4 py-2 text-sm flex items-center gap-2"
-            >
-              ⏭ Saltar minuto de defensa
-            </button>
+            {isMyTurn && (
+              <button
+                type="button"
+                onClick={onAdvancePhase}
+                aria-label="Saltar minuto de defensa"
+                className="btn-secondary px-4 py-2 text-sm flex items-center gap-2"
+              >
+                ⏭ Saltar minuto de defensa
+              </button>
+            )}
           </div>
 
           {/* Cabecera */}
@@ -192,7 +194,7 @@ export default function TiebreakerScreen({
     const votingTimeExpired = match.voting_ends_at
       ? Date.now() >= new Date(match.voting_ends_at).getTime()
       : false;
-    const everyoneVoted = votes.length >= participants.length;
+    const everyoneVoted = votes.length >= voters.length;
     const canResolve = everyoneVoted || votingTimeExpired;
     return (
       <div className="min-h-screen p-6">
@@ -273,7 +275,7 @@ export default function TiebreakerScreen({
           {/* Estado de votos */}
           <div className="card-modern p-5">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {participants.map(name => {
+              {voters.map(name => {
                 const voted = votes.some(v => v.voter_name === name);
                 return (
                   <div
@@ -310,28 +312,43 @@ export default function TiebreakerScreen({
           <div className="text-white/60 text-lg font-bold uppercase tracking-widest mb-2" style={{ letterSpacing: 8 }}>
             Ruleta del Destino
           </div>
-          <p className="text-blue-300 text-xl mb-12">
+          <p className="text-blue-300 text-xl mb-10">
             ¡Segundo empate! La suerte tiene la última palabra...
           </p>
 
-          <div
-            className={`text-7xl font-black transition-all duration-300 min-h-[100px] flex items-center justify-center ${
-              rouletteFinished ? 'text-yellow-400 scale-110 animate-pulse' : 'text-white'
-            }`}
-            style={{
-              textShadow: rouletteFinished
-                ? '0 0 60px rgba(250,204,21,0.9), 0 0 120px rgba(250,204,21,0.4)'
-                : 'none',
-            }}
-          >
-            {rouletteDisplay || '...'}
+          <div className="relative w-64 h-64 mx-auto mb-8">
+            <div
+              className="absolute inset-0 rounded-full overflow-hidden border-4 border-yellow-500/60 shadow-[0_0_40px_rgba(250,204,21,0.3)]"
+              style={{
+                transform: `rotate(${rouletteDegrees}deg)`,
+                transition: rouletteDegrees > 0 ? 'transform 3.2s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none',
+              }}
+            >
+              <div className="absolute inset-0 flex flex-col">
+                <div className="flex-1 bg-gradient-to-b from-cyan-500/90 to-blue-600/90 flex items-center justify-center">
+                  <span className="text-white font-black text-xl px-4 text-center truncate">{p1}</span>
+                </div>
+                <div className="flex-1 bg-gradient-to-b from-orange-500/90 to-rose-600/90 flex items-center justify-center">
+                  <span className="text-white font-black text-xl px-4 text-center truncate">{p2}</span>
+                </div>
+              </div>
+            </div>
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[14px] border-r-[14px] border-t-[20px] border-l-transparent border-r-transparent border-t-yellow-400 drop-shadow-lg z-10" />
           </div>
 
           {rouletteFinished && (
-            <div className="mt-10 animate-fadeIn">
+            <div className="animate-fadeIn">
               <div className="text-5xl mb-4">🏆</div>
               <div className="text-2xl text-white font-bold">
-                <span className="text-yellow-400">{rouletteDisplay}</span> pasa de ronda
+                {match.round === 'final' ? (
+                  <>
+                    <span className="text-yellow-400">{rouletteDisplay}</span> es el ganador
+                  </>
+                ) : (
+                  <>
+                    <span className="text-yellow-400">{rouletteDisplay}</span> pasa de ronda
+                  </>
+                )}
               </div>
             </div>
           )}

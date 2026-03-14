@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { claimParticipant } from '../lib/participantIdentity';
+import { dedupeNames } from '../lib/tournamentRoles';
 import { UserCircle2, Loader2, Lock } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -10,7 +11,8 @@ interface UserIdentificationProps {
 }
 
 export default function UserIdentification({ tournamentId, onIdentify }: UserIdentificationProps) {
-  const [participants, setParticipants] = useState<string[]>([]);
+  const [voters, setVoters] = useState<string[]>([]);
+  const [competitors, setCompetitors] = useState<string[]>([]);
   const [takenNames, setTakenNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
     const load = async () => {
       const { data, error } = await supabase
         .from('tournaments')
-        .select('participants')
+        .select('*')
         .eq('id', tournamentId)
         .maybeSingle();
 
@@ -30,7 +32,8 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
         console.error('Error cargando torneo:', error, 'ID:', tournamentId);
         setError('No se encontró el torneo. Asegúrate de haber copiado el enlace completo.');
       } else {
-        setParticipants(data.participants);
+        setCompetitors(data.participants ?? []);
+        setVoters(dedupeNames(data.voters?.length ? data.voters : data.participants ?? []));
       }
       setLoading(false);
     };
@@ -76,7 +79,7 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
             <UserCircle2 className="w-12 h-12 text-blue-400" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">¿Quién eres tú?</h1>
-          <p className="text-lg text-slate-300/90">Selecciona tu nombre para unirte al torneo</p>
+          <p className="text-lg text-slate-300/90">Selecciona tu nombre para unirte al torneo y participar en la votación</p>
         </div>
 
         <div className="card-modern p-8">
@@ -99,7 +102,7 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {participants.map((name) => {
+              {voters.map((name) => {
                 const isTaken = takenNames.includes(name);
                 const isSelecting = selecting === name;
 

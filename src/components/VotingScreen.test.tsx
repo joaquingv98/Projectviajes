@@ -47,7 +47,7 @@ describe('VotingScreen', () => {
         match={match}
         proposals={proposals}
         votes={votes}
-        participants={['Alice', 'Bob']}
+        voters={['Alice', 'Bob', 'Carol']}
         currentUser="Alice"
         onConfirmVote={() => {}}
         onEnsureBotsVoted={() => {}}
@@ -72,7 +72,7 @@ describe('VotingScreen', () => {
         match={match}
         proposals={proposals}
         votes={votes}
-        participants={['Alice', 'Bob']}
+        voters={['Alice', 'Bob']}
         currentUser="Alice"
         onConfirmVote={() => {}}
         onEnsureBotsVoted={() => {}}

@@ -4,6 +4,7 @@ import { Match, Proposal, Tournament, TIEBREAKER_PHASES } from '../lib/supabase'
 export type AppState =
   | { screen: 'setup' }
   | { screen: 'identify'; tournamentId: string }
+  | { screen: 'joinVoter'; tournamentId: string }
   | { screen: 'lobby'; tournamentId: string }
   | { screen: 'draw'; participants: string[]; tournamentId: string }
   | { screen: 'bracket'; tournamentId: string }
@@ -13,11 +14,20 @@ export type AppState =
   | { screen: 'tiebreak'; tournamentId: string; matchId: string }
   | { screen: 'winner'; winningProposalId: string; tournamentId: string };
 
+export function parseVoterLink(hash: string): { tournamentId: string; isVoter: boolean } {
+  const content = hash.replace('#', '').trim();
+  const [tid, queryPart] = content.split('?');
+  const params = new URLSearchParams(queryPart || '');
+  const isVoter = params.get('voter') === '1';
+  return { tournamentId: tid, isVoter };
+}
+
 export function useAutoNavigate(
   state: AppState,
   setState: React.Dispatch<React.SetStateAction<AppState>>,
   currentUser: string | null,
-  setRecentWinner: React.Dispatch<React.SetStateAction<{ name: string; round: string } | null>>
+  setRecentWinner: React.Dispatch<React.SetStateAction<{ name: string; round: string } | null>>,
+  onBroadcastView?: (tid: string, screen: 'match' | 'voting' | 'tiebreak' | 'finalReveal', matchId: string) => void
 ) {
   const currentUserRef = useRef<string | null>(null);
   const stateRef = useRef<AppState>(state);
@@ -37,7 +47,14 @@ export function useAutoNavigate(
     if (currentState.screen === 'draw') return;
 
     if (tournamentData.status === 'in_progress' && currentState.screen === 'lobby') {
-      setState({ screen: 'draw', participants: tournamentData.participants, tournamentId });
+      const competitorNames = new Set(
+        matchData.flatMap(m => [m.player1_name, m.player2_name].filter(Boolean))
+      );
+      if (competitorNames.has(user)) {
+        setState({ screen: 'draw', participants: tournamentData.participants, tournamentId });
+      } else {
+        setState({ screen: 'bracket', tournamentId });
+      }
       return;
     }
 
@@ -52,6 +69,7 @@ export function useAutoNavigate(
         (currentState.screen === 'tiebreak' && currentState.matchId !== tiebreakerMatch.id)
       ) {
         setState({ screen: 'tiebreak', tournamentId, matchId: tiebreakerMatch.id });
+        onBroadcastView?.(tournamentId, 'tiebreak', tiebreakerMatch.id);
       }
       return;
     }
@@ -63,25 +81,33 @@ export function useAutoNavigate(
         (currentState.screen === 'voting' && currentState.matchId !== votingMatch.id)
       ) {
         setState({ screen: 'voting', tournamentId, matchId: votingMatch.id });
+        onBroadcastView?.(tournamentId, 'voting', votingMatch.id);
       }
       return;
     }
 
     const proposingMatch = matchData.find(m => m.status === 'proposing');
     if (proposingMatch && currentState.screen !== 'bracket') {
+      const isUserPlayingThisMatch =
+        proposingMatch.player1_name === user || proposingMatch.player2_name === user;
+
       if (
-        currentState.screen !== 'match' ||
-        (currentState.screen === 'match' && currentState.matchId !== proposingMatch.id)
+        isUserPlayingThisMatch && (
+          currentState.screen !== 'match' ||
+          (currentState.screen === 'match' && currentState.matchId !== proposingMatch.id)
+        )
       ) {
         if (proposingMatch.round === 'final') {
           if (currentState.screen !== 'finalReveal' || currentState.matchId !== proposingMatch.id) {
             setState({ screen: 'finalReveal', tournamentId, matchId: proposingMatch.id, nextScreen: 'match' });
+            onBroadcastView?.(tournamentId, 'finalReveal', proposingMatch.id);
           }
         } else {
           setState({ screen: 'match', tournamentId, matchId: proposingMatch.id });
+          onBroadcastView?.(tournamentId, 'match', proposingMatch.id);
         }
+        return;
       }
-      return;
     }
 
     if (

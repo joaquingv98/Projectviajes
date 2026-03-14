@@ -15,6 +15,7 @@ export interface Tournament {
   name: string;
   num_participants: number;
   participants: string[];
+  voters?: string[] | null;
   status: 'setup' | 'in_progress' | 'completed';
   winner_proposal_id: string | null;
   created_at: string;

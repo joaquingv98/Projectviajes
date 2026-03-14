@@ -58,7 +58,7 @@ function CalendarMonth({ year, month, dateFrom, dateTo, hovered, today, onSelect
   const effectiveEnd = dateTo || hovered;
 
   return (
-    <div className="w-full min-w-0 max-w-[280px] shrink basis-[260px] overflow-hidden">
+    <div className="w-full min-w-0 shrink-0 overflow-visible">
       <div className="text-center text-white font-bold mb-3 text-base sm:text-lg truncate">
         {MONTHS[month]} {year}
       </div>
@@ -223,7 +223,7 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
 
       {/* Dropdown calendario - z-[10001] para quedar encima del MusicPlayer */}
       {open && (
-        <div className="absolute z-[10001] mt-2 left-1/2 -translate-x-1/2 bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[640px] min-w-0 overflow-hidden"
+        <div className="absolute z-[10001] mt-2 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[min(calc(100vw-2rem),320px)] bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-4 sm:p-6 overflow-visible"
         >
           {/* Instrucción */}
           <p className="text-blue-300/70 text-xs text-center mb-4 uppercase tracking-widest">

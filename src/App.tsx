@@ -2,20 +2,28 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Toaster } from 'sonner';
 import { toast } from 'sonner';
 import { Match, TIEBREAKER_PHASES } from './lib/supabase';
-import { setSoloModeBots } from './lib/mobile';
+import { setSoloModeBots, isBot } from './lib/mobile';
 import {
   claimSoloIdentity,
   clearParticipantIdentity,
   getParticipantIdentity,
   saveParticipantIdentity,
 } from './lib/participantIdentity';
+import {
+  clearSavedAppState,
+  getSavedAppState,
+  saveAppState,
+} from './lib/appStatePersistence';
 import { addToTournamentHistory } from './lib/tournamentHistory';
+import { getTournamentVoters } from './lib/tournamentRoles';
+import { supabase } from './lib/supabase';
 import { useTournamentData } from './hooks/useTournamentData';
 import { useMatchActions } from './hooks/useMatchActions';
-import { useAutoNavigate, type AppState } from './hooks/useAutoNavigate';
+import { useAutoNavigate, type AppState, parseVoterLink } from './hooks/useAutoNavigate';
 import TournamentSetup from './components/TournamentSetup';
 import Bracket from './components/Bracket';
 import MatchSubmission from './components/MatchSubmission';
+import JoinAsVoter from './components/JoinAsVoter';
 import VotingScreen from './components/VotingScreen';
 import TiebreakerScreen from './components/TiebreakerScreen';
 import UserIdentification from './components/UserIdentification';
@@ -32,7 +40,15 @@ function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [recentWinner, setRecentWinner] = useState<{ name: string; round: string } | null>(null);
 
-  const onDataLoaded = useAutoNavigate(state, setState, currentUser, setRecentWinner);
+  const broadcastViewMatch = useCallback((tid: string, screen: 'match' | 'voting' | 'tiebreak' | 'finalReveal', matchId: string) => {
+    supabase.channel(`bracket-view-${tid}`).send({
+      type: 'broadcast',
+      event: 'view_match',
+      payload: { screen, matchId },
+    });
+  }, []);
+
+  const onDataLoaded = useAutoNavigate(state, setState, currentUser, setRecentWinner, broadcastViewMatch);
   const onTournamentCompleted = useCallback((winningProposalId: string, tournamentId: string) => {
     setState({ screen: 'winner', winningProposalId, tournamentId });
   }, []);
@@ -47,6 +63,7 @@ function App() {
 
   const {
     createLobby,
+    addVotersToTournament,
     startDraw,
     handleStartMatch: startMatch,
     handleSubmitProposal,
@@ -55,6 +72,7 @@ function App() {
     completeMatch,
     advanceTiebreakerPhase,
     ensureBotsVoted,
+    ensureBotsSubmitProposals,
   } = useMatchActions(tournament);
 
   // Restaurar sesión desde URL hash o sessionStorage
@@ -62,16 +80,86 @@ function App() {
     const hash = window.location.hash.replace('#', '');
     if (!hash || hash.length <= 10) return;
 
-    const saved = getParticipantIdentity(hash);
+    const { tournamentId, isVoter } = parseVoterLink(hash);
+    if (!tournamentId || tournamentId.length <= 10) return;
+
+    const savedState = getSavedAppState(tournamentId);
+    const saved = getParticipantIdentity(tournamentId);
     if (saved) {
       setCurrentUser(saved.name);
-      setState({ screen: 'lobby', tournamentId: hash });
+      // Rehidratar bots en modo solo (para que "Saltar minuto de defensa" funcione tras recargar)
+      if (saved.botTokens && Object.keys(saved.botTokens).length > 0) {
+        setSoloModeBots(tournamentId, Object.keys(saved.botTokens));
+      }
+      if (savedState && savedState.screen !== 'identify' && savedState.screen !== 'joinVoter' && savedState.screen !== 'setup') {
+        setState(savedState);
+      } else {
+        setState({ screen: 'lobby', tournamentId });
+      }
       return;
     }
-    setState({ screen: 'identify', tournamentId: hash });
+    if (isVoter) {
+      setState({ screen: 'joinVoter', tournamentId });
+      return;
+    }
+    if (savedState && savedState.screen === 'identify') {
+      setState(savedState);
+      return;
+    }
+    setState({ screen: 'identify', tournamentId });
   }, []);
 
+  // Sincronizar vista de partido: cuando alguien hace clic en ver/ir partido, todos lo ven
+  useEffect(() => {
+    if (!tournamentId || tournamentId.length <= 10) return;
+    const channel = supabase.channel(`bracket-view-${tournamentId}`);
+    channel
+      .on('broadcast', { event: 'view_match' }, ({ payload }) => {
+        const { screen, matchId } = payload as { screen: 'match' | 'voting' | 'tiebreak' | 'finalReveal'; matchId: string };
+        if (screen && matchId) {
+          setState(prev => {
+            const shouldUpdate =
+              prev.screen === 'bracket' ||
+              (('matchId' in prev) && prev.matchId !== matchId) ||
+              (prev.screen === 'finalReveal' && screen !== 'finalReveal' && ('matchId' in prev) && prev.matchId === matchId);
+            if (shouldUpdate) {
+              if (screen === 'finalReveal') {
+                return { screen: 'finalReveal', tournamentId, matchId, nextScreen: 'match' as const };
+              }
+              return { screen, tournamentId, matchId };
+            }
+            return prev;
+          });
+        }
+      })
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [tournamentId]);
+
+  useEffect(() => {
+    saveAppState(state);
+  }, [state]);
+
   const advancingRef = useRef<Set<string>>(new Set());
+  const botsProposalsTriggeredRef = useRef<Set<string>>(new Set());
+
+  // Cuando el jugador humano ve un partido bot vs bot en fase de propuestas (ej. eliminado), disparar envío automático
+  useEffect(() => {
+    if (state.screen !== 'match' || !('matchId' in state)) return;
+    const match = matches.find(m => m.id === state.matchId);
+    if (!match || match.status !== 'proposing') return;
+    const p1 = match.player1_name;
+    const p2 = match.player2_name;
+    if (!p2 || !tournament) return;
+    if (!isBot(p1, match.tournament_id) || !isBot(p2, match.tournament_id)) return;
+    const matchProposals = proposals.filter(p => p.match_id === match.id);
+    if (matchProposals.length >= 2) return;
+    if (botsProposalsTriggeredRef.current.has(match.id)) return;
+    botsProposalsTriggeredRef.current.add(match.id);
+    ensureBotsSubmitProposals(match, matchProposals.length).catch(() => {
+      botsProposalsTriggeredRef.current.delete(match.id);
+    });
+  }, [state.screen, state, matches, proposals, tournament, ensureBotsSubmitProposals]);
 
   // Comprobar si algún partido ha terminado su tiempo (al cambiar matches)
   useEffect(() => {
@@ -132,7 +220,11 @@ function App() {
     return () => clearInterval(interval);
   }, [matches, completeMatch, advanceTiebreakerPhase]);
 
-  const handleCreateLobby = async (participants: string[], currentUserForMobile?: string, tournamentName?: string) => {
+  const handleCreateLobby = async (
+    participants: string[],
+    currentUserForMobile?: string,
+    tournamentName?: string
+  ) => {
     const result = await createLobby(participants, tournamentName);
     if (result) {
       addToTournamentHistory(result.tournamentId, tournamentName || 'Torneo');
@@ -170,44 +262,49 @@ function App() {
     loadTournamentData(tid);
   };
 
+  const handleVoterJoined = (name: string, tid: string, token: string) => {
+    setCurrentUser(name);
+    saveParticipantIdentity({ tournamentId: tid, name, token });
+    setState({ screen: 'bracket', tournamentId: tid });
+    loadTournamentData(tid);
+  };
+
   const handleStartMatch = async (match: Match) => {
+    const tid = match.tournament_id;
     if (match.round === 'final') {
-      setState({
-        screen: 'finalReveal',
-        tournamentId: match.tournament_id,
-        matchId: match.id,
-        nextScreen: 'match',
-        pendingStart: true,
-      });
+      setState({ screen: 'finalReveal', tournamentId: tid, matchId: match.id, nextScreen: 'match', pendingStart: true });
+      broadcastViewMatch(tid, 'finalReveal', match.id);
       return;
     }
     await startMatch(match);
-    setState({ screen: 'match', tournamentId: match.tournament_id, matchId: match.id });
+    setState({ screen: 'match', tournamentId: tid, matchId: match.id });
+    broadcastViewMatch(tid, 'match', match.id);
   };
 
   const handleMatchClick = (match: Match) => {
     if (match.status === 'pending') return;
+    const tid = match.tournament_id;
     if (match.round === 'final' && match.status === 'proposing') {
-      setState({
-        screen: 'finalReveal',
-        tournamentId: match.tournament_id,
-        matchId: match.id,
-        nextScreen: 'match',
-      });
+      setState({ screen: 'finalReveal', tournamentId: tid, matchId: match.id, nextScreen: 'match' });
+      broadcastViewMatch(tid, 'finalReveal', match.id);
       return;
     }
     if (match.round === 'final' && match.status === 'voting') {
-      setState({ screen: 'voting', tournamentId: match.tournament_id, matchId: match.id });
+      setState({ screen: 'voting', tournamentId: tid, matchId: match.id });
+      broadcastViewMatch(tid, 'voting', match.id);
       return;
     }
     if (TIEBREAKER_PHASES.includes(match.status as (typeof TIEBREAKER_PHASES)[number])) {
-      setState({ screen: 'tiebreak', tournamentId: match.tournament_id, matchId: match.id });
+      setState({ screen: 'tiebreak', tournamentId: tid, matchId: match.id });
+      broadcastViewMatch(tid, 'tiebreak', match.id);
       return;
     }
     if (match.status === 'proposing') {
-      setState({ screen: 'match', tournamentId: match.tournament_id, matchId: match.id });
+      setState({ screen: 'match', tournamentId: tid, matchId: match.id });
+      broadcastViewMatch(tid, 'match', match.id);
     } else if (match.status === 'voting' || match.status === 'completed') {
-      setState({ screen: 'voting', tournamentId: match.tournament_id, matchId: match.id });
+      setState({ screen: 'voting', tournamentId: tid, matchId: match.id });
+      broadcastViewMatch(tid, 'voting', match.id);
     }
   };
 
@@ -215,6 +312,7 @@ function App() {
     resetData();
     setCurrentUser(null);
     clearParticipantIdentity();
+    clearSavedAppState();
     window.location.hash = '';
     setState({ screen: 'setup' });
   };
@@ -224,6 +322,7 @@ function App() {
     const { tournamentId: tid, matchId: mid, nextScreen, pendingStart } = state;
     if (nextScreen === 'voting') {
       setState({ screen: 'voting', tournamentId: tid, matchId: mid });
+      broadcastViewMatch(tid, 'voting', mid);
       return;
     }
     if (nextScreen === 'match') {
@@ -234,17 +333,21 @@ function App() {
         }
       }
       setState({ screen: 'match', tournamentId: tid, matchId: mid });
+      broadcastViewMatch(tid, 'match', mid);
     }
-  }, [state, matches, startMatch]);
+  }, [state, matches, startMatch, broadcastViewMatch]);
 
   const renderScreen = () => {
+    const tournamentVoters = getTournamentVoters(tournament);
+
     if (state.screen === 'setup') {
       return (
         <TournamentSetup
           onStart={handleCreateLobby}
-          onJoin={(tid) => {
-            window.location.hash = tid;
-            setState({ screen: 'identify', tournamentId: tid });
+          onJoin={(hashOrTid) => {
+            const { tournamentId, isVoter } = parseVoterLink(hashOrTid.startsWith('#') ? hashOrTid : `#${hashOrTid}`);
+            window.location.hash = isVoter ? `${tournamentId}?voter=1` : tournamentId;
+            setState(isVoter ? { screen: 'joinVoter', tournamentId } : { screen: 'identify', tournamentId });
           }}
         />
       );
@@ -255,6 +358,15 @@ function App() {
         <UserIdentification
           tournamentId={state.tournamentId}
           onIdentify={handleIdentify}
+        />
+      );
+    }
+
+    if (state.screen === 'joinVoter') {
+      return (
+        <JoinAsVoter
+          tournamentId={state.tournamentId}
+          onJoined={handleVoterJoined}
         />
       );
     }
@@ -290,6 +402,7 @@ function App() {
           tournamentName={tournament.name}
           onMatchClick={handleMatchClick}
           onStartMatch={handleStartMatch}
+          onAddVoters={addVotersToTournament}
           recentWinner={recentWinner}
         />
       );
@@ -335,7 +448,7 @@ function App() {
           match={match}
           proposals={matchProposals}
           votes={matchVotes}
-          participants={tournament.participants}
+          voters={tournamentVoters}
           currentUser={currentUser}
           onConfirmVote={async (proposalId) => {
             if (currentUser) await handleVote(match.id, currentUser, proposalId);
@@ -356,7 +469,7 @@ function App() {
           match={match}
           proposals={matchProposals}
           votes={matchVotes}
-          participants={tournament.participants}
+          voters={tournamentVoters}
           currentUser={currentUser}
           onAdvancePhase={async () => {
             try {

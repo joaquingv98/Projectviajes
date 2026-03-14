@@ -9,6 +9,7 @@ create table if not exists tournaments (
   name text,
   num_participants int not null,
   participants jsonb not null default '[]',
+  voters jsonb not null default '[]',
   status text not null default 'setup'
     check (status in ('setup', 'in_progress', 'completed')),
   winner_proposal_id uuid,

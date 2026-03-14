@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { toast } from 'sonner';
 import { Match, Proposal, Vote as VoteType, TIEBREAKER_PHASES } from '../lib/supabase';
-import { Trophy, Clock, CheckCircle, Vote, Play, Eye, Flame } from 'lucide-react';
+import { Trophy, Clock, CheckCircle, Vote, Play, Eye, Flame, UserPlus, Copy, Check } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
-
 const ROUND_ORDER: Record<string, number> = { quarterfinals: 1, semifinals: 2, final: 3 };
 
 interface BracketProps {
@@ -15,6 +15,7 @@ interface BracketProps {
   tournamentName?: string;
   onMatchClick: (match: Match) => void;
   onStartMatch: (match: Match) => void;
+  onAddVoters: (names: string[]) => Promise<{ added: number; total: number }>;
   recentWinner?: { name: string; round: string } | null;
 }
 
@@ -44,14 +45,18 @@ function Bracket({
   tournamentName,
   onMatchClick,
   onStartMatch,
+  onAddVoters: _onAddVoters,
   recentWinner,
 }: BracketProps) {
   void tournamentId; // prop de API; uso futuro
+  void tournamentSize; // el layout se adapta a las rondas existentes
   const [starting, setStarting] = useState(false);
 
   const [advanceNotif, setAdvanceNotif] = useState<{ name: string; toRound: string } | null>(null);
   const [notifVisible, setNotifVisible] = useState(false);
   const [highlightedNames, setHighlightedNames] = useState<Set<string>>(new Set());
+  const [showAddVoters, setShowAddVoters] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Disparar animación cuando llegamos al bracket con un ganador reciente
   useEffect(() => {
@@ -119,6 +124,21 @@ function Bracket({
     await onStartMatch(nextMatch);
     setStarting(false);
   }, [nextMatch, onStartMatch]);
+
+  const voterLink = typeof window !== 'undefined'
+    ? `${window.location.origin}${window.location.pathname}#${tournamentId}?voter=1`
+    : '';
+
+  const handleCopyVoterLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(voterLink);
+      setLinkCopied(true);
+      toast.success('Enlace copiado. Compártelo con tus amigos.');
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      toast.error('No se pudo copiar. Comparte el enlace manualmente.');
+    }
+  }, [voterLink]);
   const isMobile = isMobileDevice();
 
   const getActionButtonStyle = useCallback((
@@ -402,8 +422,107 @@ function Bracket({
               Ver partido en curso
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowAddVoters(true)}
+            aria-label="Anadir amigos para las votaciones"
+            style={getActionButtonStyle('ghost')}
+          >
+            <UserPlus style={{ width: 18, height: 18 }} />
+            Anadir amigos para votar
+          </button>
         </div>
       </div>
+
+      {showAddVoters && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1100,
+          background: 'rgba(2, 8, 23, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 16,
+        }}>
+          <div style={{
+            width: 'min(100%, 560px)',
+            borderRadius: 24,
+            border: '1px solid rgba(148,163,184,0.25)',
+            background: 'linear-gradient(180deg, rgba(15,23,42,0.98), rgba(2,6,23,0.96))',
+            boxShadow: '0 28px 80px rgba(2,8,23,0.48)',
+            padding: isMobile ? 20 : 28,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
+              <div>
+                <h2 style={{ margin: 0, color: '#f8fbff', fontSize: isMobile ? 22 : 28, fontWeight: 800 }}>
+                  Anadir amigos para votar
+                </h2>
+                <p style={{ margin: '8px 0 0', color: 'rgba(191,219,254,0.9)', fontSize: 14, lineHeight: 1.5 }}>
+                  Comparte este enlace. Tus amigos lo abriran, escribiran su nombre y quedaran registrados como votantes (no competiran en el bracket).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddVoters(false)}
+                aria-label="Cerrar anadir amigos"
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#cbd5e1',
+                  fontSize: 28,
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 16 }}>
+              <input
+                type="text"
+                readOnly
+                value={voterLink}
+                aria-label="Enlace para votantes"
+                style={{
+                  flex: 1,
+                  borderRadius: 12,
+                  border: '1px solid rgba(96,165,250,0.24)',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#e2e8f0',
+                  padding: '12px 16px',
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleCopyVoterLink}
+                aria-label="Copiar enlace"
+                style={{
+                  ...getActionButtonStyle('green', false),
+                  padding: '12px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                {linkCopied ? <Check style={{ width: 18, height: 18 }} /> : <Copy style={{ width: 18, height: 18 }} />}
+                {linkCopied ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAddVoters(false)}
+              style={{ ...getActionButtonStyle('ghost', false), marginTop: 18 }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Overlay animación de avance */}
       {advanceNotif && (
@@ -448,7 +567,7 @@ function Bracket({
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, overflow: 'auto' }}>
         <div className="bracket-mobile" style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 0, minWidth: 'min-content', justifyContent: 'center' }}>
 
-          {tournamentSize === 8 && quarterMatches.length > 0 && (
+          {quarterMatches.length > 0 && (
             <div className="bracket-round" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 200 }}>
               <div style={labelStyle()}>Cuartos de Final</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -457,7 +576,7 @@ function Bracket({
             </div>
           )}
 
-          {tournamentSize === 8 && quarterMatches.length > 0 && (
+          {quarterMatches.length > 0 && (
             <div className="bracket-connectors" style={{ width: 48, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', alignSelf: 'stretch', marginTop: 40, paddingTop: 60, paddingBottom: 20 }}>
               <div style={{ height: 80, borderTop: '2px solid rgba(255,255,255,0.25)', borderRight: '2px solid rgba(255,255,255,0.25)', borderRadius: '0 8px 0 0' }} />
               <div style={{ height: 80, borderRight: '2px solid rgba(255,255,255,0.25)', borderBottom: '2px solid rgba(255,255,255,0.25)', borderRadius: '0 0 8px 0' }} />

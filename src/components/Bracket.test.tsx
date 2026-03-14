@@ -35,9 +35,10 @@ describe('Bracket', () => {
         tournamentId="t1"
         onMatchClick={() => {}}
         onStartMatch={() => {}}
+        onAddVoters={async () => ({ added: 0, total: 2 })}
       />
     );
-    expect(screen.getByText(/Comenzar: Alice vs Bob/)).toBeInTheDocument();
+    expect(screen.getByText(/Comenzar Alice vs Bob/)).toBeInTheDocument();
   });
 
   it('muestra notificación de ganador reciente cuando se pasa recentWinner', () => {
@@ -54,6 +55,7 @@ describe('Bracket', () => {
         tournamentId="t1"
         onMatchClick={() => {}}
         onStartMatch={() => {}}
+        onAddVoters={async () => ({ added: 0, total: 2 })}
         recentWinner={{ name: 'Alice', round: 'final' }}
       />
     );

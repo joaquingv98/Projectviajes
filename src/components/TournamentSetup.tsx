@@ -17,29 +17,74 @@ function ensureUniqueNames(names: string[]): string[] {
 }
 
 interface TournamentSetupProps {
-  onStart: (participants: string[], currentUserForMobile?: string, tournamentName?: string) => void | Promise<void>;
+  onStart: (
+    participants: string[],
+    currentUserForMobile?: string,
+    tournamentName?: string
+  ) => void | Promise<void>;
   onJoin: (tournamentId: string) => void;
+}
+
+const PARTICIPANT_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
+
+interface ParticipantSliderProps {
+  value: number;
+  onChange: (value: number) => void;
+  compact?: boolean;
+}
+
+function ParticipantSlider({ value, onChange, compact = false }: ParticipantSliderProps) {
+  return (
+    <div className={compact ? 'mb-4' : 'mb-6'}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-slate-300">Número de participantes</span>
+        <span className="rounded-full border border-blue-400/25 bg-blue-500/10 px-3 py-1 text-sm font-bold text-blue-200">
+          {value}
+        </span>
+      </div>
+
+      <div className="card-modern-inner px-4 py-3 sm:px-5">
+        <input
+          type="range"
+          min={2}
+          max={8}
+          step={1}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-label="Número de participantes"
+          className="participant-range w-full"
+        />
+        <div className="mt-2 grid grid-cols-7 text-center text-xs font-semibold text-slate-400">
+          {PARTICIPANT_OPTIONS.map((num) => (
+            <span key={num} className={num === value ? 'text-blue-200' : undefined}>
+              {num}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProps) {
   const isMobile = isMobileDevice();
   const [tab, setTab] = useState<'create' | 'join' | 'solo'>(isMobile ? 'solo' : 'create');
-  const [numParticipants, setNumParticipants] = useState<2 | 4 | 8>(4);
+  const [numParticipants, setNumParticipants] = useState(4);
   const [names, setNames] = useState<string[]>(Array(4).fill(''));
   const [joinCode, setJoinCode] = useState('');
   const [soloPlayerName, setSoloPlayerName] = useState('');
-  const [soloNumParticipants, setSoloNumParticipants] = useState<2 | 4 | 8>(4);
+  const [soloNumParticipants, setSoloNumParticipants] = useState(4);
   const [soloOpponentNames, setSoloOpponentNames] = useState<string[]>(['', '', '']);
   const [creatingLobby, setCreatingLobby] = useState(false);
   const [tournamentName, setTournamentName] = useState('');
   const [createTournamentName, setCreateTournamentName] = useState('');
 
-  const handleNumChange = (num: 2 | 4 | 8) => {
+  const handleNumChange = (num: number) => {
     setNumParticipants(num);
     setNames(Array(num).fill(''));
   };
 
-  const handleSoloNumChange = (num: 2 | 4 | 8) => {
+  const handleSoloNumChange = (num: number) => {
     setSoloNumParticipants(num);
     const count = num - 1;
     setSoloOpponentNames(prev => {
@@ -62,8 +107,9 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   };
 
   const handleStart = async () => {
-    const filledNames = names.filter(name => name.trim() !== '');
+    const filledNames = names.map(name => name.trim()).filter(name => name !== '');
     if (filledNames.length !== numParticipants) return;
+
     setCreatingLobby(true);
     try {
       await onStart(filledNames, undefined, createTournamentName.trim() || undefined);
@@ -88,12 +134,12 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const handleJoin = () => {
     const code = joinCode.trim();
     if (code.length > 10) {
-      // Extraer UUID si pegaron la URL completa (ej. http://.../#uuid)
-      let tid = code;
+      // Extraer hash si pegaron la URL completa (ej. http://.../#uuid o #uuid?voter=1)
+      let hashPart = code;
       if (code.includes('#')) {
-        tid = (code.split('#')[1] || code).trim();
+        hashPart = (code.split('#')[1] || code).trim();
       }
-      if (tid.length > 10) onJoin(tid);
+      if (hashPart.length > 10) onJoin(hashPart);
     }
   };
 
@@ -102,56 +148,80 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const inactiveTabClass = 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent';
 
   return (
-    <div className="relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 sm:py-10 md:px-8 lg:px-10">
+    <div className="relative min-h-screen overflow-hidden px-4 py-4 sm:px-6 sm:py-6 md:px-8 lg:px-10 lg:py-4">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[-8rem] top-16 h-64 w-64 rounded-full bg-blue-500/18 blur-3xl" />
         <div className="absolute right-[-6rem] top-24 h-72 w-72 rounded-full bg-cyan-400/14 blur-3xl" />
         <div className="absolute bottom-[-8rem] left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-violet-500/14 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto grid min-h-[calc(100vh-2rem)] max-w-7xl items-start gap-6 sm:min-h-[calc(100vh-4rem)] sm:items-center sm:gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+      <div className="relative mx-auto grid min-h-[calc(100vh-1rem)] max-w-7xl items-start gap-5 sm:min-h-[calc(100vh-2rem)] sm:items-center sm:gap-8 lg:grid-cols-[1fr_0.92fr] lg:gap-10">
         <section className="mx-auto w-full max-w-2xl lg:mx-0">
-          <div className="eyebrow-badge mb-4 text-slate-100/90 sm:mb-6">
+          <div className="brand-logo mb-4 flex items-center gap-3 sm:mb-5">
+            <div className="brand-logo-box flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl sm:h-12 sm:w-12">
+              <img
+                src="/logo-choose-the-trip.png"
+                alt=""
+                className="h-7 w-7 object-contain sm:h-8 sm:w-8"
+                style={{
+                  filter: 'brightness(1.05) contrast(1.08) saturate(0.75)',
+                }}
+              />
+            </div>
+            <span
+              className="font-bold tracking-tight text-white"
+              style={{
+                fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)',
+                letterSpacing: '-0.02em',
+                fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+              }}
+            >
+              ChooseTheTrip
+            </span>
+          </div>
+
+          <div className="eyebrow-badge mb-3 text-slate-100/90 sm:mb-4">
             <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
             Crear · Unirse · Modo solo
           </div>
 
-          <div className="mb-5 max-w-xl sm:mb-8">
-            <h1 className="display-title text-[2.85rem] text-white sm:text-6xl xl:text-7xl">
-              Convierte elegir destino en un
-              <span className="text-accent"> torneo atractivo</span>
-              <br />
-              y fácil de jugar.
+          <div className="hero-title-block mb-4 max-w-xl text-center sm:text-left sm:mb-6">
+            <h1 className="hero-title">
+              Iros de viaje con <span className="hero-gradient">vuestros amigos.</span>
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-slate-300/88 sm:mt-6 sm:text-xl sm:leading-8">
-              Crea un torneo, comparte el enlace con tus amigos y decidid juntos el próximo destino
-              mediante votaciones. O prueba en solitario contra oponentes simulados.
+
+            <h1 className="hero-title">
+              De una p*** vez.
+            </h1>
+
+            <p className="hero-subtitle">
+              Crea un torneo entre destinos y deja que el grupo decida votando.
             </p>
           </div>
 
           {!isMobile && (
             <>
-              <div className="mb-8 flex flex-wrap gap-3">
+              <div className="mb-5 flex flex-wrap gap-2.5">
                 <div className="eyebrow-badge text-slate-200/90">Crear sala</div>
                 <div className="eyebrow-badge text-slate-200/90">Unirse por código</div>
                 <div className="eyebrow-badge text-slate-200/90">Modo solo</div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="card-modern-inner p-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="card-modern-inner p-3.5">
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300/85">1</p>
-                  <p className="mt-3 text-lg font-semibold text-white">Preparas el torneo</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300/78">Define participantes y arranca sin fricción.</p>
+                  <p className="mt-2 text-base font-semibold text-white">Preparas el torneo</p>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-300/78">Define participantes y arranca sin fricción.</p>
                 </div>
-                <div className="card-modern-inner p-4">
+                <div className="card-modern-inner p-3.5">
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-300/85">2</p>
-                  <p className="mt-3 text-lg font-semibold text-white">Compartes el acceso</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300/78">Todos entran con enlace o código del torneo.</p>
+                  <p className="mt-2 text-base font-semibold text-white">Compartes el acceso</p>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-300/78">Todos entran con enlace o código del torneo.</p>
                 </div>
-                <div className="card-modern-inner p-4">
+                <div className="card-modern-inner p-3.5">
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-fuchsia-300/85">3</p>
-                  <p className="mt-3 text-lg font-semibold text-white">Votáis el viaje</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300/78">Propuestas, votaciones y el viaje ganador entre todos.</p>
+                  <p className="mt-2 text-base font-semibold text-white">Votáis el viaje</p>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-300/78">Propuestas, votaciones y viaje ganador entre todos.</p>
                 </div>
               </div>
             </>
@@ -161,12 +231,12 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
         <section className="relative mx-auto w-full max-w-2xl lg:mx-0">
           <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-blue-500/10 via-cyan-400/8 to-violet-500/10 blur-2xl" />
 
-          <div className="relative card-modern p-2.5 sm:p-4">
-            <div className="card-modern-inner p-4 sm:p-6">
-              <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative card-modern p-2 sm:p-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+            <div className="card-modern-inner p-4 sm:p-5">
+              <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300/85">Inicio del torneo</p>
-                  <h2 className="mt-2 text-xl font-bold tracking-tight text-white sm:text-3xl">
+                  <h2 className="mt-1.5 text-xl font-bold tracking-tight text-white sm:text-2xl">
                     {isMobile ? 'Empieza el torneo' : 'Elige cómo quieres empezar'}
                   </h2>
                 </div>
@@ -178,7 +248,7 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                 )}
               </div>
 
-              <div role="tablist" aria-label="Modo de juego" className="tabs-modern mb-4 sm:mb-6">
+              <div role="tablist" aria-label="Modo de juego" className="tabs-modern mb-4 sm:mb-5">
                 <button
                   role="tab"
                   type="button"
@@ -223,7 +293,7 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
               </div>
 
               <div
-                className="card-modern rounded-[1.35rem] p-4 sm:p-8"
+                className="card-modern rounded-[1.35rem] p-4 sm:p-6"
                 role="tabpanel"
                 id={tab === 'solo' ? 'tabpanel-solo' : tab === 'create' ? 'tabpanel-create' : 'tabpanel-join'}
                 aria-labelledby={tab === 'solo' ? 'tab-solo' : tab === 'create' ? 'tab-create' : 'tab-join'}
@@ -231,11 +301,11 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                 {tab === 'solo' ? (
                   <div className="mx-auto max-w-lg">
                     {!isMobile && (
-                    <p className="mb-6 text-center text-base text-slate-300/88 sm:text-lg">
+                    <p className="mb-4 text-center text-sm text-slate-300/88 sm:text-base">
                       Configura tu nombre, define cuántos rivales habrá y prueba la experiencia completa en modo individual.
                     </p>
                     )}
-                    <div className="mb-4 sm:mb-5">
+                    <div className="mb-3 sm:mb-4">
                       <label className="mb-2 block text-sm font-medium text-slate-300 sm:mb-3">Nombre del torneo (opcional)</label>
                       <input
                         type="text"
@@ -245,7 +315,7 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                         className="input-modern w-full px-4 py-3 text-sm text-white placeholder-white/35"
                       />
                     </div>
-                    <div className="mb-4 sm:mb-5">
+                    <div className="mb-3 sm:mb-4">
                       <label className="mb-2 block text-sm font-medium text-slate-300 sm:mb-3">Tu nombre</label>
                       <input
                         type="text"
@@ -255,28 +325,12 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                         className="input-modern w-full px-5 py-4 text-base text-white placeholder-white/35"
                       />
                     </div>
-                    <div className="mb-4 sm:mb-5">
-                      <label className="mb-2 block text-sm font-medium text-slate-300 sm:mb-3">Tamaño del torneo</label>
-                      <div className="grid grid-cols-3 gap-3">
-                        {[2, 4, 8].map((num) => (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => handleSoloNumChange(num as 2 | 4 | 8)}
-                            aria-label={`Seleccionar ${num} participantes`}
-                            aria-pressed={soloNumParticipants === num}
-                            className={`rounded-xl px-4 py-3.5 text-base font-semibold transition-all sm:py-4 sm:text-lg ${
-                              soloNumParticipants === num
-                                ? activeTabClass
-                                : 'input-modern text-slate-300 hover:text-white'
-                            }`}
-                          >
-                            {num}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mb-6 sm:mb-8">
+                    <ParticipantSlider
+                      value={soloNumParticipants}
+                      onChange={handleSoloNumChange}
+                      compact
+                    />
+                    <div className="mb-5 sm:mb-6">
                       <label className="mb-2 block text-sm font-medium text-slate-300 sm:mb-3">Nombres de los oponentes</label>
                       <div className="space-y-3">
                         {Array.from({ length: soloNumParticipants - 1 }).map((_, i) => (
@@ -316,11 +370,11 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                 ) : tab === 'create' ? (
                   <>
                     {!isMobile && (
-                    <p className="mb-6 text-base text-slate-300/88 sm:text-lg">
+                    <p className="mb-4 text-sm text-slate-300/88 sm:text-base">
                       Crea una sala para que todos participen y compartid el enlace antes de empezar el sorteo.
                     </p>
                     )}
-                    <div className="mb-4 sm:mb-6">
+                    <div className="mb-3 sm:mb-4">
                       <label className="mb-2 block text-sm font-medium text-slate-300 sm:mb-3 sm:text-base">Nombre del torneo (opcional)</label>
                       <input
                         type="text"
@@ -330,30 +384,13 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                         className="input-modern w-full px-5 py-4 text-base text-white placeholder-white/35"
                       />
                     </div>
-                    <div className="mb-6 sm:mb-8">
-                      <label className="mb-3 block text-sm font-medium text-slate-300 sm:mb-5 sm:text-base">Número de participantes</label>
-                      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                        {[2, 4, 8].map((num) => (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => handleNumChange(num as 2 | 4 | 8)}
-                            aria-label={`Seleccionar ${num} participantes`}
-                            aria-pressed={numParticipants === num}
-                            className={`rounded-xl px-4 py-3.5 text-base font-semibold transition-all sm:px-8 sm:py-5 sm:text-xl ${
-                              numParticipants === num
-                                ? activeTabClass
-                                : 'input-modern text-slate-300 hover:text-white'
-                            }`}
-                          >
-                            {num}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <ParticipantSlider
+                      value={numParticipants}
+                      onChange={handleNumChange}
+                    />
 
-                    <div className="mb-6 sm:mb-8">
-                      <label className="mb-3 block text-sm font-medium text-slate-300 sm:mb-5 sm:text-base">Nombres de los participantes</label>
+                    <div className="mb-5 sm:mb-6">
+                      <label className="mb-3 block text-sm font-medium text-slate-300 sm:mb-5 sm:text-base">Nombres de quienes compiten</label>
                       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
                         {names.map((name, index) => (
                           <input

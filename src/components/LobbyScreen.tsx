@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase, Tournament } from '../lib/supabase';
 import { isBot } from '../lib/mobile';
+import { getTournamentVoters } from '../lib/tournamentRoles';
 import { Play, Copy, Check, Loader2, CheckCircle2, Clock } from 'lucide-react';
 
 interface LobbyScreenProps {
@@ -15,14 +16,14 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
   const [copied, setCopied] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState<string[]>([]);
 
-  const hasBots = tournament.participants.some(p => isBot(p, tournament.id));
-  const totalParticipants = tournament.participants.length;
-  const allJoined = hasBots
-    ? true
-    : connectedUsers.length >= totalParticipants;
+  const voters = getTournamentVoters(tournament);
+  const totalParticipants = voters.length;
+  const humanVoters = voters.filter(name => !isBot(name, tournament.id));
+  const joinedCount = voters.filter(name => isBot(name, tournament.id) || connectedUsers.includes(name)).length;
+  const allJoined = connectedUsers.length >= humanVoters.length;
 
   useEffect(() => {
-    if (!currentUser || hasBots) return;
+    if (!currentUser) return;
 
     // Canal de presencia compartido con UserIdentification
     const channel = supabase.channel(`lobby-${tournament.id}`);
@@ -40,7 +41,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
       });
 
     return () => { channel.unsubscribe(); };
-  }, [tournament.id, currentUser, hasBots]);
+  }, [tournament.id, currentUser]);
 
   const shareUrl = `${window.location.origin}${window.location.pathname}#${tournament.id}`;
 
@@ -75,7 +76,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
             {tournament.name && tournament.name !== 'Travel Tournament' ? tournament.name : 'Sala de espera'}
           </h1>
           <p className="text-xl text-slate-300/90">
-            Que todos abran el enlace y elijan su nombre antes de empezar
+            Que todos los votantes abran el enlace y elijan su nombre antes de empezar
           </p>
         </div>
 
@@ -86,7 +87,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
             : ''
         }`}>
           <div className={`text-4xl font-extrabold mb-1 ${allJoined ? 'text-emerald-400' : 'text-white'}`}>
-            {connectedUsers.length} / {totalParticipants}
+            {joinedCount} / {totalParticipants}
           </div>
           <div className={`text-sm font-medium ${allJoined ? 'text-emerald-300/90' : 'text-slate-400'}`}>
             {allJoined ? '¡Todos listos! Puedes empezar el sorteo' : 'participantes conectados'}
@@ -96,8 +97,8 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
         {/* Lista de participantes */}
         <div className="card-modern p-6 mb-6">
           <div className="grid grid-cols-2 gap-3">
-            {tournament.participants.map((name) => {
-              const hasJoined = hasBots || connectedUsers.includes(name);
+            {voters.map((name) => {
+              const hasJoined = isBot(name, tournament.id) || connectedUsers.includes(name);
               const isMe = name === currentUser;
               const isBotPlayer = isBot(name, tournament.id);
               return (
@@ -115,7 +116,7 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
                     ? <CheckCircle2 className={`w-5 h-5 flex-shrink-0 ${isMe ? 'text-blue-400' : 'text-green-400'}`} />
                     : <Clock className="w-5 h-5 flex-shrink-0 text-white/30 animate-pulse" />
                   }
-                  <span className={`font-medium text-sm truncate ${
+                  <span className={`font-medium text-sm truncate flex-1 ${
                     hasJoined ? (isMe ? 'text-blue-200' : isBotPlayer ? 'text-white/70' : 'text-white') : 'text-white/30'
                   }`}>
                     {name}{isMe ? ' (tú)' : isBotPlayer ? ' 🤖' : ''}
@@ -175,11 +176,11 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
               }`}
             >
               <Play className={`w-7 h-7 fill-current ${!allJoined ? 'opacity-30' : ''}`} />
-              {allJoined ? '¡Comenzar sorteo!' : hasBots ? '¡Comenzar sorteo!' : `Esperando a ${totalParticipants - connectedUsers.length} más...`}
+              {allJoined ? '¡Comenzar sorteo!' : `Esperando a ${Math.max(0, humanVoters.length - connectedUsers.length)} más...`}
             </button>
             {!allJoined && (
               <p className="text-center text-slate-500 text-sm mt-3">
-                El botón se activará cuando todos hayan elegido su nombre
+                El botón se activará cuando todos los votantes hayan elegido su nombre
               </p>
             )}
           </div>

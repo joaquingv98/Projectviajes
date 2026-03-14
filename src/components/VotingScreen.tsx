@@ -8,7 +8,7 @@ interface VotingScreenProps {
   match: Match;
   proposals: Proposal[];
   votes: Vote[];
-  participants: string[];
+  voters: string[];
   currentUser: string | null;
   onConfirmVote: (proposalId: string) => void | Promise<void>;
   onEnsureBotsVoted: () => void;
@@ -19,7 +19,7 @@ export default function VotingScreen({
   match,
   proposals,
   votes,
-  participants,
+  voters,
   currentUser,
   onConfirmVote,
   onEnsureBotsVoted,
@@ -60,7 +60,7 @@ export default function VotingScreen({
   // Voto confirmado = escrito en BD
   const myConfirmedVote = currentUser ? votes.find(v => v.voter_name === currentUser) : null;
   const canSelect = match.status === 'voting' && timeRemaining > 0 && !myConfirmedVote;
-  const everyoneVoted = votes.length >= participants.length;
+  const everyoneVoted = votes.length >= voters.length;
 
   const handleConfirm = async () => {
     if (!selectedProposalId || myConfirmedVote) return;
@@ -254,7 +254,7 @@ export default function VotingScreen({
         <div className={`card-modern ${isMobile ? 'p-4' : 'p-6'}`}>
           <h3 className={`font-bold text-white ${isMobile ? 'text-base mb-3' : 'text-lg mb-4'}`}>Estado de votaciones</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {participants.map((participant) => {
+            {voters.map((participant) => {
               const hasConfirmed = votes.some(v => v.voter_name === participant);
               const isMe = participant === currentUser;
               return (

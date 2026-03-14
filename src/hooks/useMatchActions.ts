@@ -4,8 +4,25 @@ import { supabase, Tournament, Match, TIEBREAKER_PHASES, resolveVotes } from '..
 import { getParticipantToken } from '../lib/participantIdentity';
 import { validateProposal } from '../lib/sanitize';
 import { isBot, generateMockProposal } from '../lib/mobile';
+import { buildTournamentMatches } from '../lib/bracket';
+import { dedupeNames, getTournamentVoters } from '../lib/tournamentRoles';
 
 export function useMatchActions(tournament: Tournament | null) {
+  const isMissingVotersColumnError = useCallback((error: unknown) => {
+    if (!error || typeof error !== 'object') return false;
+    const message = 'message' in error && typeof error.message === 'string' ? error.message.toLowerCase() : '';
+    const details = 'details' in error && typeof error.details === 'string' ? error.details.toLowerCase() : '';
+    return (
+      (message.includes('voters') || details.includes('voters')) &&
+      (
+        message.includes('column') ||
+        message.includes('schema cache') ||
+        details.includes('column') ||
+        details.includes('schema cache')
+      )
+    );
+  }, []);
+
   const getTokenOrThrow = useCallback((tournamentId: string, participantName: string) => {
     const token = getParticipantToken(tournamentId, participantName);
     if (!token) {
@@ -145,16 +162,49 @@ export function useMatchActions(tournament: Tournament | null) {
     if (error) throw error;
   }, []);
 
-  const createLobby = useCallback(async (participants: string[], tournamentName?: string) => {
-    const { data: tournamentData, error } = await supabase
+  const createLobby = useCallback(async (
+    participants: string[],
+    tournamentName?: string,
+    voters?: string[]
+  ) => {
+    const normalizedParticipants = participants.map(name => name.trim()).filter(Boolean);
+    const normalizedVoters = dedupeNames([
+      ...normalizedParticipants,
+      ...(voters ?? []),
+    ]);
+
+    const baseInsert = {
+      num_participants: normalizedParticipants.length,
+      participants: normalizedParticipants,
+      status: 'setup' as const,
+      name: (tournamentName || 'Travel Tournament').trim() || 'Travel Tournament',
+    };
+
+    let tournamentData: { id: string } | null = null;
+    let error: unknown = null;
+
+    const withVoters = await supabase
       .from('tournaments')
       .insert({
-        num_participants: participants.length,
-        participants,
-        status: 'setup',
-        name: (tournamentName || 'Travel Tournament').trim() || 'Travel Tournament',
+        ...baseInsert,
+        voters: normalizedVoters,
       })
-      .select().single();
+      .select()
+      .single();
+
+    tournamentData = withVoters.data;
+    error = withVoters.error;
+
+    if (withVoters.error && isMissingVotersColumnError(withVoters.error)) {
+      const fallback = await supabase
+        .from('tournaments')
+        .insert(baseInsert)
+        .select()
+        .single();
+
+      tournamentData = fallback.data;
+      error = fallback.error;
+    }
 
     if (error || !tournamentData) {
       console.error('Error al crear sala:', error);
@@ -162,65 +212,54 @@ export function useMatchActions(tournament: Tournament | null) {
       return null;
     }
     return { tournamentId: tournamentData.id };
-  }, []);
+  }, [isMissingVotersColumnError]);
+
+  const addVotersToTournament = useCallback(async (names: string[]) => {
+    if (!tournament) return { added: 0, total: 0 };
+
+    const currentVoters = getTournamentVoters(tournament);
+    const nextVoters = dedupeNames([...currentVoters, ...names]);
+    const added = nextVoters.length - currentVoters.length;
+
+    if (added === 0) {
+      return { added: 0, total: currentVoters.length };
+    }
+
+    const { error } = await supabase
+      .from('tournaments')
+      .update({ voters: nextVoters })
+      .eq('id', tournament.id);
+
+    if (error) {
+      if (isMissingVotersColumnError(error)) {
+        toast.error('Para anadir amigos votantes necesitas aplicar la nueva migracion de Supabase.');
+      } else {
+        toast.error('No se pudieron anadir los amigos para votar.');
+      }
+      throw error;
+    }
+
+    return { added, total: nextVoters.length };
+  }, [tournament, isMissingVotersColumnError]);
 
   const startDraw = useCallback(async () => {
     if (!tournament) return null;
 
     try {
-      const shuffled = [...tournament.participants].sort(() => Math.random() - 0.5);
-      const matchesToCreate: Omit<Match, 'id' | 'created_at' | 'updated_at'>[] = [];
-
-      if (shuffled.length === 8) {
-        for (let i = 0; i < 4; i++) {
-          matchesToCreate.push({
-            tournament_id: tournament.id, round: 'quarterfinals', match_number: i,
-            player1_name: shuffled[i * 2], player2_name: shuffled[i * 2 + 1],
-            status: 'pending', winner_name: null, voting_ends_at: null,
-          });
-        }
-        for (let i = 0; i < 2; i++) {
-          matchesToCreate.push({
-            tournament_id: tournament.id, round: 'semifinals', match_number: i,
-            player1_name: 'TBD', player2_name: null,
-            status: 'pending', winner_name: null, voting_ends_at: null,
-          });
-        }
-      } else if (shuffled.length === 4) {
-        for (let i = 0; i < 2; i++) {
-          matchesToCreate.push({
-            tournament_id: tournament.id, round: 'semifinals', match_number: i,
-            player1_name: shuffled[i * 2], player2_name: shuffled[i * 2 + 1],
-            status: 'pending', winner_name: null, voting_ends_at: null,
-          });
-        }
-      } else if (shuffled.length === 2) {
-        matchesToCreate.push({
-          tournament_id: tournament.id, round: 'final', match_number: 0,
-          player1_name: shuffled[0], player2_name: shuffled[1],
-          status: 'proposing', winner_name: null, voting_ends_at: null,
-        });
-      }
-
-      if (shuffled.length > 2) {
-        matchesToCreate.push({
-          tournament_id: tournament.id, round: 'final', match_number: 0,
-          player1_name: 'TBD', player2_name: null,
-          status: 'pending', winner_name: null, voting_ends_at: null,
-        });
-      }
+      const shuffledParticipants = [...tournament.participants].sort(() => Math.random() - 0.5);
+      const matchesToCreate = buildTournamentMatches(tournament.id, shuffledParticipants);
 
       const { error: insertError } = await supabase.from('matches').insert(matchesToCreate);
       if (insertError) throw insertError;
 
       const { error: updateError } = await supabase.from('tournaments').update({
-        participants: shuffled,
+        participants: shuffledParticipants,
         status: 'in_progress',
       }).eq('id', tournament.id);
 
       if (updateError) throw updateError;
 
-      return { participants: shuffled, tournamentId: tournament.id };
+      return { participants: shuffledParticipants, tournamentId: tournament.id };
     } catch (err) {
       console.error('Error al iniciar sorteo:', err);
       toast.error('Error al iniciar el sorteo. Comprueba tu conexión e inténtalo de nuevo.');
@@ -228,26 +267,33 @@ export function useMatchActions(tournament: Tournament | null) {
     }
   }, [tournament]);
 
+  const submitBotsProposalsForMatch = useCallback(async (match: Match) => {
+    const p1 = match.player1_name;
+    const p2 = match.player2_name;
+    if (!p2 || !isBot(p1, match.tournament_id) || !isBot(p2, match.tournament_id)) return;
+    const mock1 = generateMockProposal();
+    const mock2 = generateMockProposal();
+    await submitProposalSecure(match.id, p1, match.tournament_id, mock1);
+    await submitProposalSecure(match.id, p2, match.tournament_id, mock2);
+    const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await supabase.from('matches')
+      .update({ status: 'voting', voting_ends_at: votingEndsAt })
+      .eq('id', match.id);
+  }, [submitProposalSecure]);
+
   const handleStartMatch = useCallback(async (match: Match) => {
     const p1 = match.player1_name;
     const p2 = match.player2_name;
 
     // Si ambos jugadores son bots, generar propuestas y pasar directo a votación
     if (p2 && isBot(p1, match.tournament_id) && isBot(p2, match.tournament_id)) {
-      const mock1 = generateMockProposal();
-      const mock2 = generateMockProposal();
-      await submitProposalSecure(match.id, p1, match.tournament_id, mock1);
-      await submitProposalSecure(match.id, p2, match.tournament_id, mock2);
-      const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-      await supabase.from('matches')
-        .update({ status: 'voting', voting_ends_at: votingEndsAt })
-        .eq('id', match.id);
+      await submitBotsProposalsForMatch(match);
     } else {
       await supabase.from('matches')
         .update({ status: 'proposing' })
         .eq('id', match.id);
     }
-  }, [submitProposalSecure]);
+  }, [submitBotsProposalsForMatch]);
 
   const handleSubmitProposal = useCallback(async (
     matchId: string,
@@ -315,7 +361,8 @@ export function useMatchActions(tournament: Tournament | null) {
 
       const { data: allVotes } = await supabase
         .from('votes').select('*').eq('match_id', matchId);
-      if (allVotes && allVotes.length >= tournament.participants.length) {
+      const voters = getTournamentVoters(tournament);
+      if (allVotes && allVotes.length >= voters.length) {
         await completeMatch(matchId);
       }
     }
@@ -360,7 +407,8 @@ export function useMatchActions(tournament: Tournament | null) {
       }
 
       const { data: allVotes } = await supabase.from('votes').select('*').eq('match_id', matchId);
-      if (allVotes && allVotes.length >= tournament.participants.length) {
+      const voters = getTournamentVoters(tournament);
+      if (allVotes && allVotes.length >= voters.length) {
         await advanceTiebreakerPhase(matchId);
       }
     }
@@ -398,14 +446,25 @@ export function useMatchActions(tournament: Tournament | null) {
       }
     }
     const { data: allVotes } = await supabase.from('votes').select('*').eq('match_id', matchId);
-    if (allVotes && allVotes.length >= tournament.participants.length) {
+    const voters = getTournamentVoters(tournament);
+    if (allVotes && allVotes.length >= voters.length) {
       if (isTiebreakVote) await advanceTiebreakerPhase(matchId);
       else await completeMatch(matchId);
     }
   }, [tournament, completeMatch, advanceTiebreakerPhase, castVoteSecure, pickProposalForBot]);
 
+  const ensureBotsSubmitProposals = useCallback(async (match: Match, proposalCount: number) => {
+    if (match.status !== 'proposing') return;
+    const p1 = match.player1_name;
+    const p2 = match.player2_name;
+    if (!p2 || !isBot(p1, match.tournament_id) || !isBot(p2, match.tournament_id)) return;
+    if (proposalCount >= 2) return;
+    await submitBotsProposalsForMatch(match);
+  }, [submitBotsProposalsForMatch]);
+
   return {
     createLobby,
+    addVotersToTournament,
     startDraw,
     handleStartMatch,
     handleSubmitProposal,
@@ -414,5 +473,6 @@ export function useMatchActions(tournament: Tournament | null) {
     completeMatch,
     advanceTiebreakerPhase,
     ensureBotsVoted,
+    ensureBotsSubmitProposals,
   };
 }

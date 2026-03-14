@@ -107,7 +107,7 @@ export default function DrawAnimation({ participants, onComplete }: DrawAnimatio
             {isAnimating && (
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
             )}
-            <div className={`grid grid-cols-2 md:grid-cols-4 place-items-center ${isMobile ? 'gap-3' : 'gap-6'}`}>
+            <div className={`flex flex-wrap justify-center items-end ${isMobile ? 'gap-3' : 'gap-6'}`}>
               {renderBalls()}
             </div>
           </div>
