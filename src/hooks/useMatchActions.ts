@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { toast } from 'sonner';
 import { supabase, Tournament, Match, TIEBREAKER_PHASES, resolveVotes } from '../lib/supabase';
 import { isBot, generateMockProposal } from '../lib/mobile';
 
@@ -148,7 +149,7 @@ export function useMatchActions(tournament: Tournament | null) {
 
     if (error || !tournamentData) {
       console.error('Error al crear sala:', error);
-      alert('Error al crear la sala. Revisa la consola (F12) para más detalles.');
+      toast.error('Error al crear la sala. Comprueba tu conexión e inténtalo de nuevo.');
       return null;
     }
     return { tournamentId: tournamentData.id };
@@ -157,55 +158,65 @@ export function useMatchActions(tournament: Tournament | null) {
   const startDraw = useCallback(async () => {
     if (!tournament) return null;
 
-    const shuffled = [...tournament.participants].sort(() => Math.random() - 0.5);
-    const matchesToCreate: Omit<Match, 'id' | 'created_at' | 'updated_at'>[] = [];
+    try {
+      const shuffled = [...tournament.participants].sort(() => Math.random() - 0.5);
+      const matchesToCreate: Omit<Match, 'id' | 'created_at' | 'updated_at'>[] = [];
 
-    if (shuffled.length === 8) {
-      for (let i = 0; i < 4; i++) {
+      if (shuffled.length === 8) {
+        for (let i = 0; i < 4; i++) {
+          matchesToCreate.push({
+            tournament_id: tournament.id, round: 'quarterfinals', match_number: i,
+            player1_name: shuffled[i * 2], player2_name: shuffled[i * 2 + 1],
+            status: 'pending', winner_name: null, voting_ends_at: null,
+          });
+        }
+        for (let i = 0; i < 2; i++) {
+          matchesToCreate.push({
+            tournament_id: tournament.id, round: 'semifinals', match_number: i,
+            player1_name: 'TBD', player2_name: null,
+            status: 'pending', winner_name: null, voting_ends_at: null,
+          });
+        }
+      } else if (shuffled.length === 4) {
+        for (let i = 0; i < 2; i++) {
+          matchesToCreate.push({
+            tournament_id: tournament.id, round: 'semifinals', match_number: i,
+            player1_name: shuffled[i * 2], player2_name: shuffled[i * 2 + 1],
+            status: 'pending', winner_name: null, voting_ends_at: null,
+          });
+        }
+      } else if (shuffled.length === 2) {
         matchesToCreate.push({
-          tournament_id: tournament.id, round: 'quarterfinals', match_number: i,
-          player1_name: shuffled[i * 2], player2_name: shuffled[i * 2 + 1],
-          status: 'pending', winner_name: null, voting_ends_at: null,
+          tournament_id: tournament.id, round: 'final', match_number: 0,
+          player1_name: shuffled[0], player2_name: shuffled[1],
+          status: 'proposing', winner_name: null, voting_ends_at: null,
         });
       }
-      for (let i = 0; i < 2; i++) {
+
+      if (shuffled.length > 2) {
         matchesToCreate.push({
-          tournament_id: tournament.id, round: 'semifinals', match_number: i,
+          tournament_id: tournament.id, round: 'final', match_number: 0,
           player1_name: 'TBD', player2_name: null,
           status: 'pending', winner_name: null, voting_ends_at: null,
         });
       }
-    } else if (shuffled.length === 4) {
-      for (let i = 0; i < 2; i++) {
-        matchesToCreate.push({
-          tournament_id: tournament.id, round: 'semifinals', match_number: i,
-          player1_name: shuffled[i * 2], player2_name: shuffled[i * 2 + 1],
-          status: 'pending', winner_name: null, voting_ends_at: null,
-        });
-      }
-    } else if (shuffled.length === 2) {
-      matchesToCreate.push({
-        tournament_id: tournament.id, round: 'final', match_number: 0,
-        player1_name: shuffled[0], player2_name: shuffled[1],
-        status: 'proposing', winner_name: null, voting_ends_at: null,
-      });
+
+      const { error: insertError } = await supabase.from('matches').insert(matchesToCreate);
+      if (insertError) throw insertError;
+
+      const { error: updateError } = await supabase.from('tournaments').update({
+        participants: shuffled,
+        status: 'in_progress',
+      }).eq('id', tournament.id);
+
+      if (updateError) throw updateError;
+
+      return { participants: shuffled, tournamentId: tournament.id };
+    } catch (err) {
+      console.error('Error al iniciar sorteo:', err);
+      toast.error('Error al iniciar el sorteo. Comprueba tu conexión e inténtalo de nuevo.');
+      return null;
     }
-
-    if (shuffled.length > 2) {
-      matchesToCreate.push({
-        tournament_id: tournament.id, round: 'final', match_number: 0,
-        player1_name: 'TBD', player2_name: null,
-        status: 'pending', winner_name: null, voting_ends_at: null,
-      });
-    }
-
-    await supabase.from('matches').insert(matchesToCreate);
-    await supabase.from('tournaments').update({
-      participants: shuffled,
-      status: 'in_progress',
-    }).eq('id', tournament.id);
-
-    return { participants: shuffled, tournamentId: tournament.id };
   }, [tournament]);
 
   const handleStartMatch = useCallback(async (match: Match) => {
@@ -236,34 +247,42 @@ export function useMatchActions(tournament: Tournament | null) {
     playerName: string,
     proposalData: { flight_link: string; price: number; destination?: string; dates?: string }
   ) => {
-    await supabase.from('proposals').insert({
-      match_id: matchId, player_name: playerName, ...proposalData,
-    });
-
-    const { data: match } = await supabase.from('matches').select('player1_name, player2_name, tournament_id').eq('id', matchId).single();
-    const otherPlayer = match?.player1_name === playerName ? match?.player2_name : match?.player1_name;
-
-    // Si el oponente es un bot, generar y enviar su propuesta automáticamente
-    if (otherPlayer && match && isBot(otherPlayer, match.tournament_id)) {
-      const mock = generateMockProposal(otherPlayer);
-      await supabase.from('proposals').insert({
-        match_id: matchId,
-        player_name: otherPlayer,
-        flight_link: mock.flight_link,
-        price: mock.price,
-        destination: mock.destination,
-        dates: mock.dates,
+    try {
+      const { error: insertError } = await supabase.from('proposals').insert({
+        match_id: matchId, player_name: playerName, ...proposalData,
       });
-    }
+      if (insertError) throw insertError;
 
-    const { data: allProposals } = await supabase
-      .from('proposals').select('*').eq('match_id', matchId);
+      const { data: match } = await supabase.from('matches').select('player1_name, player2_name, tournament_id').eq('id', matchId).single();
+      const otherPlayer = match?.player1_name === playerName ? match?.player2_name : match?.player1_name;
 
-    if (allProposals && allProposals.length === 2) {
-      const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-      await supabase.from('matches')
-        .update({ status: 'voting', voting_ends_at: votingEndsAt })
-        .eq('id', matchId);
+      // Si el oponente es un bot, generar y enviar su propuesta automáticamente
+      if (otherPlayer && match && isBot(otherPlayer, match.tournament_id)) {
+        const mock = generateMockProposal(otherPlayer);
+        const { error: botError } = await supabase.from('proposals').insert({
+          match_id: matchId,
+          player_name: otherPlayer,
+          flight_link: mock.flight_link,
+          price: mock.price,
+          destination: mock.destination,
+          dates: mock.dates,
+        });
+        if (botError) throw botError;
+      }
+
+      const { data: allProposals } = await supabase
+        .from('proposals').select('*').eq('match_id', matchId);
+
+      if (allProposals && allProposals.length === 2) {
+        const { error: updateError } = await supabase.from('matches')
+          .update({ status: 'voting', voting_ends_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() })
+          .eq('id', matchId);
+        if (updateError) throw updateError;
+      }
+    } catch (err) {
+      console.error('Error al enviar propuesta:', err);
+      toast.error('Error al enviar la propuesta. Comprueba tu conexión e inténtalo de nuevo.');
+      throw err;
     }
   }, []);
 
