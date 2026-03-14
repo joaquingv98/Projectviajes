@@ -1,7 +1,20 @@
 import { useState } from 'react';
-import { Users, LogIn, Smartphone, Monitor, ArrowRight, Loader2, History } from 'lucide-react';
+import { Users, LogIn, Smartphone, Monitor, ArrowRight, Loader2 } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
-import { getTournamentHistory } from '../lib/tournamentHistory';
+
+function ensureUniqueNames(names: string[]): string[] {
+  const used = new Set<string>();
+  return names.map((name) => {
+    let unique = name;
+    let n = 2;
+    while (used.has(unique)) {
+      unique = `${name} ${n}`;
+      n++;
+    }
+    used.add(unique);
+    return unique;
+  });
+}
 
 interface TournamentSetupProps {
   onStart: (participants: string[], currentUserForMobile?: string, tournamentName?: string) => void | Promise<void>;
@@ -20,7 +33,6 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const [creatingLobby, setCreatingLobby] = useState(false);
   const [tournamentName, setTournamentName] = useState('');
   const [createTournamentName, setCreateTournamentName] = useState('');
-  const history = getTournamentHistory();
 
   const handleNumChange = (num: 2 | 4 | 8) => {
     setNumParticipants(num);
@@ -63,8 +75,8 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const handleSoloStart = async () => {
     const myName = soloPlayerName.trim();
     if (!myName) return;
-    const opponents = soloOpponentNames.slice(0, soloNumParticipants - 1).map((n, i) => n.trim() || `Oponente ${i + 1}`);
-    const participants = [myName, ...opponents];
+    const rawOpponents = soloOpponentNames.slice(0, soloNumParticipants - 1).map((n, i) => n.trim() || `Oponente ${i + 1}`);
+    const participants = ensureUniqueNames([myName, ...rawOpponents]);
     setCreatingLobby(true);
     try {
       await onStart(participants, myName, tournamentName.trim() || undefined);
@@ -93,29 +105,6 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-3 tracking-tight">Torneo de Viajes</h1>
           <p className="text-lg sm:text-xl text-slate-300/90">Decide el próximo viaje con tus amigos</p>
         </div>
-
-        {/* Historial de torneos recientes */}
-        {history.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <History className="w-4 h-4" />
-              Torneos recientes
-            </h3>
-            <div className="space-y-2">
-              {history.map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  onClick={() => onJoin(entry.id)}
-                  className="w-full text-left px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors flex justify-between items-center"
-                >
-                  <span className="font-medium truncate">{entry.name}</span>
-                  <span className="text-slate-400 text-xs flex-shrink-0 ml-2">Reabrir</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Tabs */}
         <div role="tablist" aria-label="Modo de juego" className="tabs-modern mb-6">

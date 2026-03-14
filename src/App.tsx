@@ -197,6 +197,10 @@ function App() {
       });
       return;
     }
+    if (TIEBREAKER_PHASES.includes(match.status as (typeof TIEBREAKER_PHASES)[number])) {
+      setState({ screen: 'tiebreak', tournamentId: match.tournament_id, matchId: match.id });
+      return;
+    }
     if (match.status === 'proposing') {
       setState({ screen: 'match', tournamentId: match.tournament_id, matchId: match.id });
     } else if (match.status === 'voting' || match.status === 'completed') {
