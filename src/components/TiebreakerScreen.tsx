@@ -154,24 +154,6 @@ export default function TiebreakerScreen({
               <p className="text-white/60 mb-6">
                 Tienes {formatTime(timeRemaining)} para argumentar el precio, las fechas y la experiencia.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-                <button
-                  type="button"
-                  onClick={onAdvancePhase}
-                  aria-label="He terminado mi defensa"
-                  className="btn-primary px-8 py-4 text-lg"
-                >
-                  He terminado mi defensa ➤
-                </button>
-                <button
-                  type="button"
-                  onClick={onAdvancePhase}
-                  aria-label="Saltar defensa"
-                  className="btn-secondary px-6 py-3 text-sm"
-                >
-                  ⏭ Saltar defensa
-                </button>
-              </div>
             </div>
           ) : (
             <div className="card-modern p-10 mb-6 text-center">
@@ -185,14 +167,6 @@ export default function TiebreakerScreen({
                   Fase 2 de 2 — después vendrá la segunda votación
                 </p>
               )}
-              <button
-                type="button"
-                onClick={onAdvancePhase}
-                aria-label="Saltar defensa"
-                className="mt-4 px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 hover:text-white transition-all"
-              >
-                ⏭ Saltar defensa
-              </button>
             </div>
           )}
 

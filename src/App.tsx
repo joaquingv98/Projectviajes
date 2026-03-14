@@ -82,7 +82,7 @@ function App() {
         if (Date.now() >= endTime && !match.winner_name) {
           try {
             await completeMatch(match.id);
-          } catch (err) {
+          } catch {
             toast.error('Error al completar el partido. Inténtalo de nuevo.');
           }
         }
@@ -93,7 +93,7 @@ function App() {
           advancingRef.current.add(match.id);
           try {
             await advanceTiebreakerPhase(match.id);
-          } catch (err) {
+          } catch {
             toast.error('Error al avanzar. Inténtalo de nuevo.');
           } finally {
             advancingRef.current.delete(match.id);
@@ -188,13 +188,17 @@ function App() {
 
   const handleMatchClick = (match: Match) => {
     if (match.status === 'pending') return;
-    if (match.round === 'final' && (match.status === 'proposing' || match.status === 'voting')) {
+    if (match.round === 'final' && match.status === 'proposing') {
       setState({
         screen: 'finalReveal',
         tournamentId: match.tournament_id,
         matchId: match.id,
-        nextScreen: match.status === 'proposing' ? 'match' : 'voting',
+        nextScreen: 'match',
       });
+      return;
+    }
+    if (match.round === 'final' && match.status === 'voting') {
+      setState({ screen: 'voting', tournamentId: match.tournament_id, matchId: match.id });
       return;
     }
     if (TIEBREAKER_PHASES.includes(match.status as (typeof TIEBREAKER_PHASES)[number])) {

@@ -62,13 +62,7 @@ export function useAutoNavigate(
         currentState.screen !== 'voting' ||
         (currentState.screen === 'voting' && currentState.matchId !== votingMatch.id)
       ) {
-        if (votingMatch.round === 'final') {
-          if (currentState.screen !== 'finalReveal' || currentState.matchId !== votingMatch.id) {
-            setState({ screen: 'finalReveal', tournamentId, matchId: votingMatch.id, nextScreen: 'voting' });
-          }
-        } else {
-          setState({ screen: 'voting', tournamentId, matchId: votingMatch.id });
-        }
+        setState({ screen: 'voting', tournamentId, matchId: votingMatch.id });
       }
       return;
     }

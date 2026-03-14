@@ -363,7 +363,7 @@ export function useMatchActions(tournament: Tournament | null) {
     if (match.status !== 'voting' && !isTiebreakVote) return;
     const { data: existingVotes } = await supabase.from('votes').select('voter_name').eq('match_id', matchId);
     const voted = new Set((existingVotes ?? []).map(v => v.voter_name));
-    let bots = tournament.participants.filter(p => isBot(p, tournament!.id) && !voted.has(p));
+    const bots = tournament.participants.filter(p => isBot(p, tournament!.id) && !voted.has(p));
     // En tiebreak: los bots del partido también deben auto-votar, si no la pantalla se bloquea
     if (bots.length === 0) return;
     const { data: proposals } = await supabase.from('proposals').select('id, player_name').eq('match_id', matchId);
