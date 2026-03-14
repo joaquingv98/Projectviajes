@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase, Tournament, Match, TIEBREAKER_PHASES, resolveVotes } from '../lib/supabase';
+import { validateProposal } from '../lib/sanitize';
 import { isBot, generateMockProposal } from '../lib/mobile';
 
 export function useMatchActions(tournament: Tournament | null) {
@@ -137,13 +138,14 @@ export function useMatchActions(tournament: Tournament | null) {
     }
   }, [advanceWinner]);
 
-  const createLobby = useCallback(async (participants: string[]) => {
+  const createLobby = useCallback(async (participants: string[], tournamentName?: string) => {
     const { data: tournamentData, error } = await supabase
       .from('tournaments')
       .insert({
         num_participants: participants.length,
         participants,
         status: 'setup',
+        name: (tournamentName || 'Travel Tournament').trim() || 'Travel Tournament',
       })
       .select().single();
 
@@ -247,9 +249,14 @@ export function useMatchActions(tournament: Tournament | null) {
     playerName: string,
     proposalData: { flight_link: string; price: number; destination?: string; dates?: string }
   ) => {
+    const sanitized = validateProposal(proposalData);
+    if (!sanitized) {
+      toast.error('Datos inválidos. Revisa el enlace, precio y destino.');
+      throw new Error('Invalid proposal data');
+    }
     try {
       const { error: insertError } = await supabase.from('proposals').insert({
-        match_id: matchId, player_name: playerName, ...proposalData,
+        match_id: matchId, player_name: playerName, ...sanitized,
       });
       if (insertError) throw insertError;
 

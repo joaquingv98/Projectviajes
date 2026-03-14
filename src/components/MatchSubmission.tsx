@@ -60,16 +60,22 @@ function CalendarMonth({ year, month, dateFrom, dateTo, hovered, today, onSelect
   const effectiveEnd = dateTo || hovered;
 
   return (
-    <div className="w-full min-w-[260px] max-w-[320px]">
-      <div className="text-center text-white font-bold mb-3 text-base sm:text-lg">
+    <div className="w-full min-w-0 max-w-[280px] shrink basis-[260px] overflow-hidden">
+      <div className="text-center text-white font-bold mb-3 text-base sm:text-lg truncate">
         {MONTHS[month]} {year}
       </div>
-      <div className="grid grid-cols-7 mb-2 gap-0.5">
+      <div
+        className="grid mb-2 gap-0.5"
+        style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+      >
         {DAYS.map(d => (
-          <div key={d} className="text-center text-xs text-blue-300/60 font-bold py-1">{d}</div>
+          <div key={d} className="text-center text-xs text-blue-300/60 font-bold py-1 min-w-0 truncate">{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div
+        className="grid gap-1"
+        style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+      >
         {cells.map((date, i) => {
           if (!date) return <div key={i} className="aspect-square" />;
 
@@ -78,7 +84,7 @@ function CalendarMonth({ year, month, dateFrom, dateTo, hovered, today, onSelect
           const isEnd = date === dateTo || (date === hovered && !dateTo && dateFrom && date > dateFrom);
           const inRange = !!(dateFrom && effectiveEnd && date > dateFrom && date < effectiveEnd && date >= dateFrom);
 
-          let cellClass = 'relative flex items-center justify-center text-sm transition-all aspect-square min-w-[36px] min-h-[36px] ';
+          let cellClass = 'relative flex items-center justify-center text-sm transition-all aspect-square min-w-0 w-full overflow-hidden ';
 
           if (isPast) {
             cellClass += 'text-white/20 cursor-not-allowed ';
@@ -139,6 +145,23 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Al abrir, mostrar los meses de las fechas seleccionadas (o el mes actual)
+  useEffect(() => {
+    if (open) {
+      if (dateFrom) {
+        const [y, m] = dateFrom.split('-').map(Number);
+        const monthIdx = m - 1;
+        setViewYear(y);
+        // Mostrar mes anterior + mes de ida para que la selección sea visible
+        setViewMonth(Math.max(0, monthIdx - 1));
+      } else {
+        const now = new Date();
+        setViewYear(now.getFullYear());
+        setViewMonth(now.getMonth());
+      }
+    }
+  }, [open, dateFrom]);
+
   const month2 = viewMonth === 11 ? 0 : viewMonth + 1;
   const year2  = viewMonth === 11 ? viewYear + 1 : viewYear;
 
@@ -180,6 +203,9 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
+        aria-label="Seleccionar fechas del viaje"
+        aria-expanded={open}
+        aria-haspopup="dialog"
         className={`w-full px-4 py-3 rounded-lg border text-left flex items-center gap-3 transition-all ${
           open
             ? 'bg-blue-500/20 border-blue-400 ring-2 ring-blue-500/40'
@@ -194,6 +220,7 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
           <button
             type="button"
             onClick={e => { e.stopPropagation(); onChange('', ''); }}
+            aria-label="Borrar fechas seleccionadas"
             className="ml-auto text-white/40 hover:text-white text-lg leading-none"
           >
             ×
@@ -203,7 +230,7 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
 
       {/* Dropdown calendario - z-[10001] para quedar encima del MusicPlayer */}
       {open && (
-        <div className="absolute z-[10001] mt-2 left-1/2 -translate-x-1/2 bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[620px]"
+        <div className="absolute z-[10001] mt-2 left-1/2 -translate-x-1/2 bg-[#001B44] border border-blue-500/30 rounded-2xl shadow-2xl shadow-black/60 p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-[640px] min-w-0 overflow-hidden"
         >
           {/* Instrucción */}
           <p className="text-blue-300/70 text-xs text-center mb-4 uppercase tracking-widest">
@@ -211,14 +238,14 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
           </p>
 
           {/* Navegación - un mes en móvil, dos en desktop */}
-          <div className={`flex ${isMobileDevice() ? 'flex-col items-center' : 'items-start gap-8'}`}>
+          <div className={`flex min-w-0 ${isMobileDevice() ? 'flex-col items-center' : 'items-start gap-4 sm:gap-6'}`}>
             {isMobileDevice() ? (
               <>
                 <div className="flex items-center justify-between w-full mb-2">
-                  <button type="button" onClick={prevM} className="text-white/50 hover:text-white p-2 transition-colors">
+                  <button type="button" onClick={prevM} aria-label="Mes anterior" className="text-white/50 hover:text-white p-2 transition-colors">
                     <ChevronLeft className="w-6 h-6" />
                   </button>
-                  <button type="button" onClick={nextM} className="text-white/50 hover:text-white p-2 transition-colors">
+                  <button type="button" onClick={nextM} aria-label="Mes siguiente" className="text-white/50 hover:text-white p-2 transition-colors">
                     <ChevronRight className="w-6 h-6" />
                   </button>
                 </div>
@@ -232,13 +259,13 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
               </>
             ) : (
               <>
-                <button type="button" onClick={prevM} className="text-white/50 hover:text-white mt-1 transition-colors">
+                <button type="button" onClick={prevM} aria-label="Mes anterior" className="text-white/50 hover:text-white mt-1 transition-colors">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <CalendarMonth year={viewYear} month={viewMonth} dateFrom={dateFrom} dateTo={dateTo} hovered={hovered} today={today} onSelect={handleSelect} onHover={setHovered} />
                 <div className="w-px bg-blue-500/20 self-stretch mx-1" />
                 <CalendarMonth year={year2} month={month2} dateFrom={dateFrom} dateTo={dateTo} hovered={hovered} today={today} onSelect={handleSelect} onHover={setHovered} />
-                <button type="button" onClick={nextM} className="text-white/50 hover:text-white mt-1 transition-colors">
+                <button type="button" onClick={nextM} aria-label="Mes siguiente" className="text-white/50 hover:text-white mt-1 transition-colors">
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </>
@@ -322,8 +349,11 @@ export default function MatchSubmission({
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
-    await onSubmit({ flight_link: flightLink, price: parseFloat(price), destination, dates: datesLabel });
-    setSubmitting(false);
+    try {
+      await onSubmit({ flight_link: flightLink, price: parseFloat(price), destination, dates: datesLabel });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const myProposal    = proposals.find(p => p.player_name === currentUser);
@@ -336,7 +366,7 @@ export default function MatchSubmission({
     return (
       <div className="min-h-screen p-6">
         <div className="max-w-2xl mx-auto">
-          <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
+          <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
           <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl card-modern-inner mb-5 border-emerald-500/30">
             <Send className="w-10 h-10 text-emerald-400" />
@@ -396,7 +426,7 @@ export default function MatchSubmission({
             <span className="font-bold text-white">{match.player1_name}</span> y{' '}
             <span className="font-bold text-white">{match.player2_name}</span> están preparando sus propuestas de viaje.
           </p>
-          <button onClick={onBack} className="text-blue-300 hover:text-white transition-colors">← Volver al cuadro</button>
+          <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className="text-blue-300 hover:text-white transition-colors">← Volver al cuadro</button>
         </div>
       </div>
     );
@@ -406,7 +436,7 @@ export default function MatchSubmission({
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-4xl mx-auto">
-        <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
+        <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className="text-blue-300 hover:text-white mb-6 transition-colors">← Volver al cuadro</button>
 
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl card-modern-inner mb-4">
@@ -475,6 +505,7 @@ export default function MatchSubmission({
                   type="button"
                   onClick={handleRouletteClick}
                   disabled={spinning}
+                  aria-label={spinning ? 'Ruleta girando' : 'Elegir destino al azar con la ruleta'}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     spinning
                       ? 'bg-blue-500/30 text-blue-300 cursor-wait'

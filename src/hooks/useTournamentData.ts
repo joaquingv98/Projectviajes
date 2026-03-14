@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, Tournament, Match, Proposal, Vote } from '../lib/supabase';
+import { usePageVisibility } from './usePageVisibility';
 
 type OnDataLoaded = (
   matchData: Match[],
@@ -63,6 +64,16 @@ export function useTournamentData(
   }, [onDataLoaded, onTournamentCompleted]);
 
   const effectiveTournamentId = getTournamentIdFromScreen(screen, tournamentId);
+  const isPageVisible = usePageVisibility();
+  const lastFetchRef = useRef<number>(0);
+  const MIN_FETCH_INTERVAL_MS = 1500;
+
+  const loadWithThrottle = useCallback(async (tid: string) => {
+    const now = Date.now();
+    if (now - lastFetchRef.current < MIN_FETCH_INTERVAL_MS) return;
+    lastFetchRef.current = now;
+    await loadTournamentData(tid);
+  }, [loadTournamentData]);
 
   useEffect(() => {
     if (!effectiveTournamentId) return;
@@ -74,7 +85,7 @@ export function useTournamentData(
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'matches',
         filter: `tournament_id=eq.${effectiveTournamentId}`,
-      }, () => loadTournamentData(effectiveTournamentId))
+      }, () => loadWithThrottle(effectiveTournamentId))
       .subscribe();
 
     const tournamentChannel = supabase
@@ -82,21 +93,21 @@ export function useTournamentData(
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'tournaments',
         filter: `id=eq.${effectiveTournamentId}`,
-      }, () => loadTournamentData(effectiveTournamentId))
+      }, () => loadWithThrottle(effectiveTournamentId))
       .subscribe();
 
     const proposalChannel = supabase
       .channel(`proposals-${effectiveTournamentId}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'proposals',
-      }, () => loadTournamentData(effectiveTournamentId))
+      }, () => loadWithThrottle(effectiveTournamentId))
       .subscribe();
 
     const voteChannel = supabase
       .channel(`votes-${effectiveTournamentId}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'votes',
-      }, () => loadTournamentData(effectiveTournamentId))
+      }, () => loadWithThrottle(effectiveTournamentId))
       .subscribe();
 
     return () => {
@@ -105,13 +116,15 @@ export function useTournamentData(
       proposalChannel.unsubscribe();
       voteChannel.unsubscribe();
     };
-  }, [screen, effectiveTournamentId, loadTournamentData]);
+  }, [screen, effectiveTournamentId, loadTournamentData, loadWithThrottle]);
 
+  // Polling adaptativo: 2.5s visible, 10s oculta (ahorra recursos en pestañas en segundo plano)
   useEffect(() => {
     if (!effectiveTournamentId || screen === 'draw') return;
-    const interval = setInterval(() => loadTournamentData(effectiveTournamentId), 2500);
+    const intervalMs = isPageVisible ? 2500 : 10000;
+    const interval = setInterval(() => loadWithThrottle(effectiveTournamentId), intervalMs);
     return () => clearInterval(interval);
-  }, [screen, effectiveTournamentId, loadTournamentData]);
+  }, [screen, effectiveTournamentId, loadWithThrottle, isPageVisible]);
 
   const resetData = useCallback(() => {
     setTournament(null);

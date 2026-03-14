@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Match, Proposal, Vote } from '../lib/supabase';
-import { ExternalLink, Clock, CheckCircle2, Lock } from 'lucide-react';
+import { ExternalLink, Clock, CheckCircle2, Lock, Loader2 } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
 
 interface VotingScreenProps {
@@ -9,7 +10,7 @@ interface VotingScreenProps {
   votes: Vote[];
   participants: string[];
   currentUser: string | null;
-  onConfirmVote: (proposalId: string) => void;
+  onConfirmVote: (proposalId: string) => void | Promise<void>;
   onEnsureBotsVoted: () => void;
   onBack: () => void;
 }
@@ -27,6 +28,7 @@ export default function VotingScreen({
   const [timeRemaining, setTimeRemaining] = useState(0);
   // Selección provisional (local) — no escribe en BD hasta confirmar
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
+  const [votingInProgress, setVotingInProgress] = useState(false);
 
   // Los bots votan automáticamente al abrir la pantalla
   useEffect(() => {
@@ -60,9 +62,17 @@ export default function VotingScreen({
   const canSelect = match.status === 'voting' && timeRemaining > 0 && !myConfirmedVote;
   const everyoneVoted = votes.length >= participants.length;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!selectedProposalId || myConfirmedVote) return;
-    onConfirmVote(selectedProposalId);
+    setVotingInProgress(true);
+    try {
+      await onConfirmVote(selectedProposalId);
+      toast.success('¡Voto registrado!');
+    } catch {
+      toast.error('Error al registrar el voto. Inténtalo de nuevo.');
+    } finally {
+      setVotingInProgress(false);
+    }
   };
 
   const renderProposalCard = (proposal: Proposal | undefined, voteCount: number) => {
@@ -136,8 +146,10 @@ export default function VotingScreen({
 
         {/* Botón de selección provisional */}
         <button
+          type="button"
           onClick={() => canSelect && setSelectedProposalId(proposal.id)}
           disabled={!!myConfirmedVote}
+          aria-label={isConfirmedVote ? 'Voto confirmado' : `Seleccionar viaje a ${proposal.destination || proposal.player_name}`}
           className={`w-full py-3 rounded-lg font-bold transition-all ${
             isConfirmedVote
               ? 'bg-green-500 text-white cursor-default'
@@ -166,7 +178,7 @@ export default function VotingScreen({
   return (
     <div className={`min-h-screen ${isMobile ? 'p-4 pb-28' : 'p-6'}`}>
       <div className="max-w-6xl mx-auto">
-        <button onClick={onBack} className={`text-blue-300 hover:text-white transition-colors ${isMobile ? 'mb-4' : 'mb-6'}`}>
+        <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className={`text-blue-300 hover:text-white transition-colors ${isMobile ? 'mb-4' : 'mb-6'}`}>
           ← Volver al cuadro
         </button>
 
@@ -223,12 +235,16 @@ export default function VotingScreen({
                 )}
               </div>
               <button
+                type="button"
                 onClick={handleConfirm}
-                className={`flex-shrink-0 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition-all active:scale-95 ${
+                disabled={votingInProgress}
+                aria-label="Confirmar voto"
+                className={`flex-shrink-0 flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 disabled:bg-yellow-500/70 disabled:cursor-wait text-black font-bold rounded-xl transition-all active:scale-95 ${
                   isMobileDevice() ? 'px-5 py-2.5 text-sm' : 'px-6 py-3 text-base'
                 }`}
               >
-                ✓ Confirmar
+                {votingInProgress ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {votingInProgress ? 'Registrando...' : '✓ Confirmar'}
               </button>
             </div>
           </div>

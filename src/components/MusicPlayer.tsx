@@ -45,7 +45,9 @@ export default function MusicPlayer() {
       )}
 
       <button
+        type="button"
         onClick={togglePlay}
+        aria-label={isPlaying ? 'Pausar himno' : 'Reproducir himno de la Champions'}
         title={isPlaying ? 'Pausar himno' : 'Reproducir himno de la Champions'}
         className={`
           rounded-full border-none cursor-pointer flex items-center justify-center transition-all duration-200 relative

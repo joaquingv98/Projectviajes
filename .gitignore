@@ -28,6 +28,10 @@ yarn-error.log*
 # Sistema operativo
 .DS_Store
 Thumbs.db
+nul
 
 # Supabase local
 .supabase/
+
+# Local Netlify folder
+.netlify

@@ -80,7 +80,9 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
             <div className="text-center py-8">
               <p className="text-red-400 text-lg mb-6">{error}</p>
               <button
+                type="button"
                 onClick={() => { window.location.hash = ''; window.location.reload(); }}
+                aria-label="Volver al inicio"
                 className="btn-secondary px-6 py-3"
               >
                 Volver al inicio
@@ -95,8 +97,10 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
                 return (
                   <button
                     key={name}
+                    type="button"
                     onClick={() => !isTaken && !selecting && handleSelect(name)}
                     disabled={isTaken || !!selecting}
+                    aria-label={isTaken ? `${name} (ocupado)` : `Seleccionar ${name}`}
                     className={`w-full py-4 px-6 border rounded-xl text-lg font-semibold transition-all text-left flex items-center gap-3 ${
                       isTaken
                         ? 'card-modern-inner border-white/5 text-slate-500 cursor-not-allowed'

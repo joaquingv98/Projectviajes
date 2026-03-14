@@ -1,28 +1,68 @@
-# Milestone 3 — Acceso móvil y modo solo vs máquina
+# Milestone 3 — Errores, estados de carga y feedback
 
 ## Objetivo
-Hacer la web accesible desde el móvil en la red local y permitir jugar en solitario contra oponentes simulados (solo en móvil).
+Eliminar `alert()` y reemplazarlo por notificaciones en la UI. Gestionar estados de carga en las acciones asíncronas clave. Mejorar la experiencia cuando algo falla.
+
+> **Nota:** El modo "Jugar vs máquina" se mantiene para pruebas rápidas (puede eliminarse en el futuro).
 
 ## Tareas
 
-- [x] Vite: configurar `server.host: true` para exponer en la red local
-- [x] Añadir `--host` al script `dev` para mostrar IP de red en consola
-- [x] Crear `src/lib/mobile.ts` con `isMobileDevice()`, `isBot()`, `getBotNames()`, `generateMockProposal()`
-- [x] TournamentSetup: pestaña "Jugar vs máquina" (solo en móvil)
-- [x] App: `handleCreateLobby` acepta `currentUserForMobile` y salta identificación
-- [x] LobbyScreen: considerar "todos unidos" cuando hay bots
-- [x] useMatchActions: auto-propuesta bot cuando usuario envía; auto-propuestas si ambos son bots
-- [x] useMatchActions: auto-voto de bots en votación y tiebreak
-- [x] TiebreakerScreen: auto-avanzar fase defensa cuando el defensor es bot
-- [x] Mejoras responsive: padding, tamaños de fuente, calendario móvil, bracket scroll
+- [x] Instalar librería de toasts (`sonner`)
+- [x] Añadir `<Toaster />` en la raíz de la app
+- [x] Reemplazar `alert()` en `useMatchActions` por `toast.error()`
+- [x] Crear componente `LoadingOverlay` reutilizable
+- [x] Estado loading en crear sala: `TournamentSetup` muestra loading mientras `createLobby`
+- [x] Estado loading en sorteo: `LobbyScreen` ya tiene `starting`; asegurar que `startDraw` maneje errores con toast
+- [x] Estado loading en enviar propuesta: `MatchSubmission` ya tiene `submitting`; verificar cobertura
+- [x] Estado loading en votar: `VotingScreen` — añadir feedback al confirmar voto
+- [x] Manejar errores en `startDraw` (Supabase puede fallar) con toast
+- [x] ErrorBoundary ya existe; verificar que envuelve correctamente toda la app
+
+## Mapa de Ruta / Pseudocódigo
+
+```
+package.json:
+  + "sonner"
+
+main.tsx / App.tsx:
+  import { Toaster } from 'sonner'
+  <Toaster position="top-center" richColors />
+
+useMatchActions.ts:
+  import { toast } from 'sonner'
+  createLobby: catch -> toast.error('Error al crear la sala...') en lugar de alert()
+
+LoadingOverlay.tsx (nuevo):
+  props: { visible: boolean, message?: string }
+  render: overlay con spinner + mensaje, z-index alto
+
+TournamentSetup:
+  state: creatingLobby = false
+  handleStart/handleSoloStart:
+    setCreatingLobby(true)
+    await onStart(...)  // onStart debe devolver Promise
+    setCreatingLobby(false)
+  onStart prop: (participants, currentUser?) => Promise<void>
+
+App.handleCreateLobby:
+  try { await createLobby(...) } catch { toast.error(...); return }
+  // Ya maneja navegación en éxito
+
+LobbyScreen:
+  handleStart: try { await onStart() } catch { toast.error(...) } finally { setStarting(false) }
+  onStart debe propagar errores
+
+VotingScreen:
+  handleConfirm: estado votingInProgress, deshabilitar botón, toast.success al confirmar
+```
 
 ## Criterios de Aceptación
 
-- [x] Con `npm run dev`, la consola muestra la URL de red (ej. http://192.168.x.x:5173)
-- [x] En móvil se puede acceder usando la IP del ordenador en la misma red
-- [x] En móvil aparece la opción "Jugar vs máquina"
-- [x] El usuario elige su nombre y tamaño (2/4/8) y comienza sin esperar a nadie
-- [x] Los bots generan propuestas automáticas
-- [x] Los bots votan automáticamente cuando el usuario vota
-- [x] El tiebreaker con bot defensor avanza solo tras unos segundos
-- [x] La UI es usable en pantallas pequeñas
+- [x] No existe ningún `alert()` en el código
+- [x] Errores (crear sala, sorteo, red) se muestran como notificación toast
+- [x] Crear sala muestra indicador de carga mientras se procesa
+- [x] Iniciar sorteo muestra indicador de carga (ya existe)
+- [x] Enviar propuesta muestra "Enviando..." (ya existe)
+- [x] Confirmar voto muestra feedback (loading o toast de éxito)
+- [x] Si algo falla, el usuario puede reintentar sin recargar la página
+- [x] ErrorBoundary captura errores React y muestra pantalla de recuperación

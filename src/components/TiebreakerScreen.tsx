@@ -102,11 +102,13 @@ export default function TiebreakerScreen({
       <div className="min-h-screen p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <button onClick={onBack} className="text-blue-300 hover:text-white transition-colors">
+            <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className="text-blue-300 hover:text-white transition-colors">
               ← Volver al cuadro
             </button>
             <button
+              type="button"
               onClick={onAdvancePhase}
+              aria-label="Saltar minuto de defensa"
               className="btn-secondary px-4 py-2 text-sm flex items-center gap-2"
             >
               ⏭ Saltar minuto de defensa
@@ -154,13 +156,17 @@ export default function TiebreakerScreen({
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                 <button
+                  type="button"
                   onClick={onAdvancePhase}
+                  aria-label="He terminado mi defensa"
                   className="btn-primary px-8 py-4 text-lg"
                 >
                   He terminado mi defensa ➤
                 </button>
                 <button
+                  type="button"
                   onClick={onAdvancePhase}
+                  aria-label="Saltar defensa"
                   className="btn-secondary px-6 py-3 text-sm"
                 >
                   ⏭ Saltar defensa
@@ -180,7 +186,9 @@ export default function TiebreakerScreen({
                 </p>
               )}
               <button
+                type="button"
                 onClick={onAdvancePhase}
+                aria-label="Saltar defensa"
                 className="mt-4 px-6 py-3 bg-white/10 border border-white/30 text-white/80 text-sm font-semibold rounded-xl hover:bg-white/20 hover:text-white transition-all"
               >
                 ⏭ Saltar defensa
@@ -211,7 +219,7 @@ export default function TiebreakerScreen({
     return (
       <div className="min-h-screen p-6">
         <div className="max-w-6xl mx-auto">
-          <button onClick={onBack} className="text-blue-300 hover:text-white mb-6 transition-colors">
+          <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className="text-blue-300 hover:text-white mb-6 transition-colors">
             ← Volver al cuadro
           </button>
 
@@ -247,8 +255,10 @@ export default function TiebreakerScreen({
                 {p.dates && <div className="text-blue-200 text-sm mb-2">{p.dates}</div>}
                 <div className="text-white text-3xl font-bold mb-4">{p.price} €</div>
                 <button
+                  type="button"
                   onClick={() => canVote && onVote(p.id)}
                   disabled={!!myVote}
+                  aria-label={myVote?.proposal_id === p.id ? 'Tu voto' : `Votar por ${p.destination || p.player_name}`}
                   className={`w-full py-3 rounded-lg font-bold transition-all ${
                     myVote?.proposal_id === p.id
                       ? 'bg-green-500 text-white cursor-default'

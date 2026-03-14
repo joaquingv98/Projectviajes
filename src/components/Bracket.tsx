@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Match, TIEBREAKER_PHASES } from '../lib/supabase';
+import { toast } from 'sonner';
 import { Trophy, Clock, CheckCircle, Copy, Check, Share2, Vote } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
 
@@ -8,16 +9,18 @@ interface BracketProps {
   tournamentSize: number;
   currentUser: string | null;
   tournamentId: string;
+  tournamentName?: string;
   onMatchClick: (match: Match) => void;
   onStartMatch: (match: Match) => void;
   recentWinner?: { name: string; round: string } | null;
 }
 
-export default function Bracket({
+function Bracket({
   matches,
   tournamentSize,
   currentUser,
   tournamentId,
+  tournamentName,
   onMatchClick,
   onStartMatch,
   recentWinner,
@@ -49,64 +52,81 @@ export default function Bracket({
     }, 7000);
   }, [recentWinner]);
 
-  const quarterMatches = matches.filter(m => m.round === 'quarterfinals');
-  const semiMatches = matches.filter(m => m.round === 'semifinals');
-  const finalMatch = matches.find(m => m.round === 'final');
-
-  const hasActiveMatch = matches.some(m =>
-    m.status === 'proposing' || m.status === 'voting' ||
-    TIEBREAKER_PHASES.includes(m.status as typeof TIEBREAKER_PHASES[number])
+  const quarterMatches = useMemo(
+    () => matches.filter(m => m.round === 'quarterfinals'),
+    [matches]
+  );
+  const semiMatches = useMemo(
+    () => matches.filter(m => m.round === 'semifinals'),
+    [matches]
+  );
+  const finalMatch = useMemo(
+    () => matches.find(m => m.round === 'final'),
+    [matches]
   );
 
-  const votingMatch = matches.find(m => m.status === 'voting');
-  const tiebreakerMatch = matches.find(m => TIEBREAKER_PHASES.includes(m.status as typeof TIEBREAKER_PHASES[number]));
-  const proposingMatch = matches.find(m => m.status === 'proposing');
+  const hasActiveMatch = useMemo(
+    () => matches.some(m =>
+      m.status === 'proposing' || m.status === 'voting' ||
+      TIEBREAKER_PHASES.includes(m.status as typeof TIEBREAKER_PHASES[number])
+    ),
+    [matches]
+  );
 
-  // Siguiente partido a jugar: primero en orden (cuartos < semis < final) con jugadores conocidos
+  const votingMatch = useMemo(
+    () => matches.find(m => m.status === 'voting'),
+    [matches]
+  );
+  const tiebreakerMatch = useMemo(
+    () => matches.find(m => TIEBREAKER_PHASES.includes(m.status as typeof TIEBREAKER_PHASES[number])),
+    [matches]
+  );
+  const proposingMatch = useMemo(
+    () => matches.find(m => m.status === 'proposing'),
+    [matches]
+  );
+
   const roundOrder: Record<string, number> = { quarterfinals: 1, semifinals: 2, final: 3 };
-  const nextMatch = !hasActiveMatch
-    ? matches
-        .filter(m => m.status === 'pending' && m.player1_name !== 'TBD' && m.player2_name && m.player2_name !== 'TBD')
-        .sort((a, b) => (roundOrder[a.round] - roundOrder[b.round]) || (a.match_number - b.match_number))[0]
-    : undefined;
+  const nextMatch = useMemo(() => {
+    if (hasActiveMatch) return undefined;
+    return matches
+      .filter(m => m.status === 'pending' && m.player1_name !== 'TBD' && m.player2_name && m.player2_name !== 'TBD')
+      .sort((a, b) => (roundOrder[a.round] - roundOrder[b.round]) || (a.match_number - b.match_number))[0];
+  }, [matches, hasActiveMatch]);
 
-  const handleStart = async () => {
+  const handleStart = useCallback(async () => {
     if (!nextMatch) return;
     setStarting(true);
     await onStartMatch(nextMatch);
     setStarting(false);
-  };
+  }, [nextMatch, onStartMatch]);
 
   const shareUrl = `${window.location.origin}${window.location.pathname}#${tournamentId}`;
 
-  const handleCopy = () => {
-    try {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      }).catch(() => {
-        // Fallback: seleccionar el texto del input
-        const input = document.getElementById('share-url-input') as HTMLInputElement;
-        if (input) { input.select(); document.execCommand('copy'); }
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      });
-    } catch {
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }).catch(() => {
+      const input = document.getElementById('share-url-input') as HTMLInputElement;
+      if (input) input.select();
+      toast('Selecciona y copia manualmente (Ctrl+C)', { duration: 3000 });
       setCopied(false);
-    }
-  };
+    });
+  }, [shareUrl]);
 
-  const isMyMatch = (match: Match) =>
+  const isMyMatch = useCallback((match: Match) =>
     currentUser &&
-    (match.player1_name === currentUser || match.player2_name === currentUser);
+    (match.player1_name === currentUser || match.player2_name === currentUser),
+  [currentUser]);
 
-  const getStatusIcon = (match: Match) => {
+  const getStatusIcon = useCallback((match: Match) => {
     if (match.status === 'completed') return <CheckCircle style={{ width: 20, height: 20, color: '#4ade80' }} />;
     if (match.status === 'voting' || match.status === 'proposing') return <Clock style={{ width: 20, height: 20, color: '#facc15' }} />;
     return null;
-  };
+  }, []);
 
-  const renderCard = (match: Match) => {
+  const renderCard = useCallback((match: Match) => {
     const isActive = match.status !== 'pending' && match.status !== 'completed';
     const isCompleted = match.status === 'completed';
     const isPending = match.status === 'pending';
@@ -168,11 +188,16 @@ export default function Bracket({
       animation: name && highlightedNames.has(name) ? 'nameSlideIn 0.6s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
     });
 
+    const statusText = isPending ? 'pendiente' : isCompleted ? 'completado' : isActive ? 'en curso' : '';
+    const ariaLabel = `Partido: ${match.player1_name} vs ${match.player2_name || 'Por definir'}, ${statusText}`;
+
     return (
       <button
+        type="button"
         key={match.id}
         onClick={() => !isPending && onMatchClick(match)}
         style={cardStyle}
+        aria-label={ariaLabel}
         onMouseEnter={e => { if (isActive) (e.currentTarget as HTMLElement).style.transform = 'scale(1.03)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
       >
@@ -201,7 +226,7 @@ export default function Bracket({
         <div style={{ position: 'absolute', top: 12, right: 12 }}>{getStatusIcon(match)}</div>
       </button>
     );
-  };
+  }, [onMatchClick, highlightedNames, isMyMatch, getStatusIcon]);
 
   const labelStyle = (color = '#93c5fd'): React.CSSProperties => ({
     textAlign: 'center',
@@ -223,13 +248,13 @@ export default function Bracket({
           .bracket-mobile .bracket-card { min-width: auto !important; }
           .bracket-header-mobile { padding: 0 8px 16px !important; margin-bottom: 16px !important; }
           .share-box-mobile { padding: 10px 14px !important; }
-          .bracket-card button { padding: 12px 16px !important; }
+          .bracket-card button { padding: 14px 18px !important; min-height: 48px; font-size: 1rem; }
         }
       `}</style>
       {/* Cabecera */}
       <div className="bracket-header-mobile" style={{ textAlign: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 'clamp(28px, 6vw, 48px)', fontWeight: 800, color: 'white', marginBottom: 8, letterSpacing: 1 }}>
-          Cuadro del Torneo
+          {tournamentName && tournamentName !== 'Travel Tournament' ? tournamentName : 'Cuadro del Torneo'}
         </h1>
         {currentUser && (
           <p style={{ fontSize: 18, color: '#93c5fd', marginBottom: 16 }}>
@@ -240,8 +265,10 @@ export default function Bracket({
         {/* Botón Comenzar siguiente partido */}
         {nextMatch && (
           <button
+            type="button"
             onClick={handleStart}
             disabled={starting}
+            aria-label={starting ? 'Iniciando partido' : `Comenzar partido ${nextMatch.player1_name} vs ${nextMatch.player2_name}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: starting ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #eab308, #ca8a04)',
@@ -260,7 +287,9 @@ export default function Bracket({
         {/* Botón "Ir a votar" - todos deben votar */}
         {votingMatch && (
           <button
+            type="button"
             onClick={() => onMatchClick(votingMatch)}
+            aria-label={`Ir a votar en partido ${votingMatch.player1_name} vs ${votingMatch.player2_name}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'linear-gradient(135deg, #16a34a, #15803d)',
@@ -277,7 +306,9 @@ export default function Bracket({
         {/* Botón "Ir a tiebreak" */}
         {tiebreakerMatch && !votingMatch && (
           <button
+            type="button"
             onClick={() => onMatchClick(tiebreakerMatch)}
+            aria-label={`Ir a minuto de oro entre ${tiebreakerMatch.player1_name} y ${tiebreakerMatch.player2_name}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'linear-gradient(135deg, #ea580c, #c2410c)',
@@ -296,7 +327,9 @@ export default function Bracket({
           if (!isMine) return null;
           return (
             <button
+              type="button"
               onClick={() => onMatchClick(proposingMatch)}
+              aria-label="Ir a mi partido para enviar propuesta"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 10,
                 background: 'linear-gradient(135deg, #eab308, #ca8a04)',
@@ -313,7 +346,9 @@ export default function Bracket({
         {/* Si hay proposing pero no es tuyo: botón para ver */}
         {proposingMatch && !(currentUser && (proposingMatch.player1_name === currentUser || proposingMatch.player2_name === currentUser)) && (
           <button
+            type="button"
             onClick={() => onMatchClick(proposingMatch)}
+            aria-label="Ver partido en curso"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
@@ -337,18 +372,18 @@ export default function Bracket({
                 <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 }}>
                   Comparte
                 </span>
-                <button onClick={() => setShareExpanded(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: 18, cursor: 'pointer', padding: 4 }}>×</button>
+                <button type="button" onClick={() => setShareExpanded(false)} aria-label="Cerrar compartir" style={{ background: 'none', border: 'none', color: 'white', fontSize: 18, cursor: 'pointer', padding: 4 }}>×</button>
               </div>
               <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
-                <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()}
+                <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()} aria-label="Enlace del torneo para compartir"
                   style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 12, fontFamily: 'monospace', cursor: 'text', outline: 'none' }} />
-                <button onClick={handleCopy} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                <button type="button" onClick={handleCopy} aria-label={copied ? 'Enlace copiado' : 'Copiar enlace del torneo'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                   {copied ? <><Check style={{ width: 14, height: 14, color: '#4ade80' }} /> Copiado</> : <><Copy style={{ width: 14, height: 14 }} /> Copiar</>}
                 </button>
               </div>
             </div>
           ) : (
-            <button onClick={() => setShareExpanded(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '10px 20px', color: '#93c5fd', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            <button type="button" onClick={() => setShareExpanded(true)} aria-label="Compartir enlace del torneo" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '10px 20px', color: '#93c5fd', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               <Share2 style={{ width: 18, height: 18 }} /> Compartir enlace
             </button>
           )
@@ -360,9 +395,9 @@ export default function Bracket({
           }}>
             <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 }}>Comparte este enlace con tus amigos</span>
             <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
-              <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()}
+              <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()} aria-label="Enlace del torneo para compartir"
                 style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 13, fontFamily: 'monospace', cursor: 'text', outline: 'none' }} />
-              <button onClick={handleCopy} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              <button type="button" onClick={handleCopy} aria-label={copied ? 'Enlace copiado' : 'Copiar enlace del torneo'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                 {copied ? <><Check style={{ width: 14, height: 14, color: '#4ade80' }} /> Copiado</> : <><Copy style={{ width: 14, height: 14 }} /> Copiar</>}
               </button>
             </div>
@@ -463,3 +498,5 @@ export default function Bracket({
     </div>
   );
 }
+
+export default memo(Bracket);

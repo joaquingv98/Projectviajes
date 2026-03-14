@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Users, LogIn, Smartphone, Monitor, ArrowRight } from 'lucide-react';
+import { Users, LogIn, Smartphone, Monitor, ArrowRight, Loader2, History } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
+import { getTournamentHistory } from '../lib/tournamentHistory';
 
 interface TournamentSetupProps {
-  onStart: (participants: string[], currentUserForMobile?: string) => void;
+  onStart: (participants: string[], currentUserForMobile?: string, tournamentName?: string) => void | Promise<void>;
   onJoin: (tournamentId: string) => void;
 }
 
@@ -16,6 +17,10 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
   const [soloPlayerName, setSoloPlayerName] = useState('');
   const [soloNumParticipants, setSoloNumParticipants] = useState<2 | 4 | 8>(4);
   const [soloOpponentNames, setSoloOpponentNames] = useState<string[]>(['', '', '']);
+  const [creatingLobby, setCreatingLobby] = useState(false);
+  const [tournamentName, setTournamentName] = useState('');
+  const [createTournamentName, setCreateTournamentName] = useState('');
+  const history = getTournamentHistory();
 
   const handleNumChange = (num: 2 | 4 | 8) => {
     setNumParticipants(num);
@@ -44,19 +49,28 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
     setNames(newNames);
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
     const filledNames = names.filter(name => name.trim() !== '');
-    if (filledNames.length === numParticipants) {
-      onStart(filledNames);
+    if (filledNames.length !== numParticipants) return;
+    setCreatingLobby(true);
+    try {
+      await onStart(filledNames, undefined, createTournamentName.trim() || undefined);
+    } finally {
+      setCreatingLobby(false);
     }
   };
 
-  const handleSoloStart = () => {
+  const handleSoloStart = async () => {
     const myName = soloPlayerName.trim();
     if (!myName) return;
     const opponents = soloOpponentNames.slice(0, soloNumParticipants - 1).map((n, i) => n.trim() || `Oponente ${i + 1}`);
     const participants = [myName, ...opponents];
-    onStart(participants, myName);
+    setCreatingLobby(true);
+    try {
+      await onStart(participants, myName, tournamentName.trim() || undefined);
+    } finally {
+      setCreatingLobby(false);
+    }
   };
 
   const handleJoin = () => {
@@ -80,9 +94,37 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
           <p className="text-lg sm:text-xl text-slate-300/90">Decide el próximo viaje con tus amigos</p>
         </div>
 
+        {/* Historial de torneos recientes */}
+        {history.length > 0 && (
+          <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <History className="w-4 h-4" />
+              Torneos recientes
+            </h3>
+            <div className="space-y-2">
+              {history.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => onJoin(entry.id)}
+                  className="w-full text-left px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors flex justify-between items-center"
+                >
+                  <span className="font-medium truncate">{entry.name}</span>
+                  <span className="text-slate-400 text-xs flex-shrink-0 ml-2">Reabrir</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="tabs-modern mb-6">
+        <div role="tablist" aria-label="Modo de juego" className="tabs-modern mb-6">
           <button
+            role="tab"
+            type="button"
+            aria-selected={tab === 'solo'}
+            aria-controls="tabpanel-solo"
+            id="tab-solo"
             onClick={() => setTab('solo')}
             className={`flex-shrink-0 py-3 px-4 sm:px-6 rounded-xl font-semibold text-base sm:text-lg transition-all flex items-center justify-center gap-2 ${
               tab === 'solo'
@@ -94,6 +136,11 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
             Jugar vs máquina
           </button>
           <button
+            role="tab"
+            type="button"
+            aria-selected={tab === 'create'}
+            aria-controls="tabpanel-create"
+            id="tab-create"
             onClick={() => setTab('create')}
             className={`flex-1 min-w-0 py-3 px-4 sm:px-6 rounded-xl font-semibold text-base sm:text-lg transition-all ${
               tab === 'create'
@@ -104,6 +151,11 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
             Crear torneo
           </button>
           <button
+            role="tab"
+            type="button"
+            aria-selected={tab === 'join'}
+            aria-controls="tabpanel-join"
+            id="tab-join"
             onClick={() => setTab('join')}
             className={`flex-1 min-w-0 py-3 px-4 sm:px-6 rounded-xl font-semibold text-base sm:text-lg transition-all flex items-center justify-center gap-2 ${
               tab === 'join'
@@ -117,12 +169,22 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
         </div>
 
         {/* Card */}
-        <div className="card-modern p-6 sm:p-12">
+        <div className="card-modern p-6 sm:p-12" role="tabpanel" id={tab === 'solo' ? 'tabpanel-solo' : tab === 'create' ? 'tabpanel-create' : 'tabpanel-join'} aria-labelledby={tab === 'solo' ? 'tab-solo' : tab === 'create' ? 'tab-create' : 'tab-join'}>
           {tab === 'solo' ? (
             <div className="max-w-lg mx-auto">
               <p className="text-slate-300/90 text-base sm:text-lg mb-6 text-center">
                 Elige tu nombre y juega contra oponentes simulados. Ideal para probar la aplicación de forma ágil.
               </p>
+              <div className="mb-6">
+                <label className="block text-slate-300 text-sm font-medium mb-3">Nombre del torneo (opcional)</label>
+                <input
+                  type="text"
+                  value={tournamentName}
+                  onChange={(e) => setTournamentName(e.target.value)}
+                  placeholder="Ej: Viaje a Tailandia"
+                  className="input-modern w-full px-4 py-3 text-white text-sm placeholder-white/40"
+                />
+              </div>
               <div className="mb-6">
                 <label className="block text-slate-300 text-sm font-medium mb-3">Tu nombre</label>
                 <input
@@ -139,7 +201,10 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                   {[2, 4, 8].map((num) => (
                     <button
                       key={num}
+                      type="button"
                       onClick={() => handleSoloNumChange(num as 2 | 4 | 8)}
+                      aria-label={`Seleccionar ${num} participantes`}
+                      aria-pressed={soloNumParticipants === num}
                       className={`py-4 px-4 rounded-xl font-semibold text-lg transition-all ${
                         soloNumParticipants === num
                           ? 'bg-white/15 text-white border border-white/20'
@@ -167,21 +232,39 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                 </div>
               </div>
               <button
+                type="button"
                 onClick={handleSoloStart}
-                disabled={!soloPlayerName.trim()}
+                disabled={!soloPlayerName.trim() || creatingLobby}
+                aria-label="Jugar contra la máquina"
                 className={`w-full py-5 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-2 ${
-                  soloPlayerName.trim()
+                  soloPlayerName.trim() && !creatingLobby
                     ? 'btn-primary'
                     : 'bg-white/5 text-white/40 cursor-not-allowed border border-white/5'
                 }`}
               >
-                {isMobile ? <Smartphone className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
-                ¡Jugar contra la máquina!
-                <ArrowRight className="w-5 h-5" />
+                {creatingLobby ? (
+                  <><Loader2 className="w-6 h-6 animate-spin" /> Creando sala...</>
+                ) : (
+                  <>
+                    {isMobile ? <Smartphone className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
+                    ¡Jugar contra la máquina!
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
           ) : tab === 'create' ? (
             <>
+              <div className="mb-6">
+                <label className="block text-slate-300 text-base font-medium mb-3">Nombre del torneo (opcional)</label>
+                <input
+                  type="text"
+                  value={createTournamentName}
+                  onChange={(e) => setCreateTournamentName(e.target.value)}
+                  placeholder="Ej: Viaje grupal 2025"
+                  className="input-modern w-full px-5 py-4 text-white text-base placeholder-white/40"
+                />
+              </div>
               <div className="mb-10">
                 <label className="block text-slate-300 text-base font-medium mb-5">
                   Número de participantes
@@ -190,7 +273,10 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                   {[2, 4, 8].map((num) => (
                     <button
                       key={num}
+                      type="button"
                       onClick={() => handleNumChange(num as 2 | 4 | 8)}
+                      aria-label={`Seleccionar ${num} participantes`}
+                      aria-pressed={numParticipants === num}
                       className={`py-5 px-8 rounded-xl font-semibold text-xl transition-all ${
                         numParticipants === num
                           ? 'bg-white/15 text-white border border-white/20'
@@ -222,16 +308,21 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
               </div>
 
               <button
+                type="button"
                 onClick={handleStart}
-                disabled={!allNamesFilled}
+                disabled={!allNamesFilled || creatingLobby}
+                aria-label="Crear sala de espera"
                 className={`w-full py-5 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-2 ${
-                  allNamesFilled
+                  allNamesFilled && !creatingLobby
                     ? 'btn-primary'
                     : 'bg-white/5 text-white/40 cursor-not-allowed border border-white/5'
                 }`}
               >
-                Crear sala de espera
-                <ArrowRight className="w-5 h-5" />
+                {creatingLobby ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Creando sala...</>
+                ) : (
+                  <>Crear sala de espera <ArrowRight className="w-5 h-5" /></>
+                )}
               </button>
               <p className="text-center text-slate-500 text-sm mt-3">
                 Podrás compartir el enlace con todos antes de comenzar el sorteo
@@ -255,8 +346,10 @@ export default function TournamentSetup({ onStart, onJoin }: TournamentSetupProp
                 />
               </div>
               <button
+                type="button"
                 onClick={handleJoin}
                 disabled={joinCode.trim().length <= 10}
+                aria-label="Unirme al torneo"
                 className={`w-full py-5 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-3 ${
                   joinCode.trim().length > 10
                     ? 'btn-primary'

@@ -1,19 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { Toaster } from 'sonner';
 import { Match, TIEBREAKER_PHASES } from './lib/supabase';
 import { setSoloModeBots } from './lib/mobile';
+import { addToTournamentHistory } from './lib/tournamentHistory';
 import { useTournamentData } from './hooks/useTournamentData';
 import { useMatchActions } from './hooks/useMatchActions';
 import { useAutoNavigate, type AppState } from './hooks/useAutoNavigate';
 import TournamentSetup from './components/TournamentSetup';
-import DrawAnimation from './components/DrawAnimation';
 import Bracket from './components/Bracket';
 import MatchSubmission from './components/MatchSubmission';
 import VotingScreen from './components/VotingScreen';
 import TiebreakerScreen from './components/TiebreakerScreen';
-import WinnerScreen from './components/WinnerScreen';
 import UserIdentification from './components/UserIdentification';
 import LobbyScreen from './components/LobbyScreen';
 import MusicPlayer from './components/MusicPlayer';
+import ThemeToggle from './components/ThemeToggle';
+import { Loader2 } from 'lucide-react';
+
+const DrawAnimation = lazy(() => import('./components/DrawAnimation'));
+const WinnerScreen = lazy(() => import('./components/WinnerScreen'));
 
 function App() {
   const [state, setState] = useState<AppState>({ screen: 'setup' });
@@ -82,9 +87,10 @@ function App() {
     });
   }, [matches, completeMatch, advanceTiebreakerPhase]);
 
-  const handleCreateLobby = async (participants: string[], currentUserForMobile?: string) => {
-    const result = await createLobby(participants);
+  const handleCreateLobby = async (participants: string[], currentUserForMobile?: string, tournamentName?: string) => {
+    const result = await createLobby(participants, tournamentName);
     if (result) {
+      addToTournamentHistory(result.tournamentId, tournamentName || 'Torneo');
       window.location.hash = result.tournamentId;
       if (currentUserForMobile) {
         setCurrentUser(currentUserForMobile);
@@ -140,7 +146,10 @@ function App() {
       return (
         <TournamentSetup
           onStart={handleCreateLobby}
-          onJoin={(tid) => setState({ screen: 'identify', tournamentId: tid })}
+          onJoin={(tid) => {
+            window.location.hash = tid;
+            setState({ screen: 'identify', tournamentId: tid });
+          }}
         />
       );
     }
@@ -180,6 +189,7 @@ function App() {
           tournamentSize={tournament.num_participants}
           currentUser={currentUser}
           tournamentId={tournament.id}
+          tournamentName={tournament.name}
           onMatchClick={handleMatchClick}
           onStartMatch={handleStartMatch}
           recentWinner={recentWinner}
@@ -196,9 +206,9 @@ function App() {
           match={match}
           proposals={matchProposals}
           currentUser={currentUser}
-          onSubmit={(proposalData) => {
+          onSubmit={async (proposalData) => {
             const playerName = currentUser || match.player1_name;
-            handleSubmitProposal(match.id, playerName, proposalData);
+            await handleSubmitProposal(match.id, playerName, proposalData);
           }}
           onBack={() => setState({ screen: 'bracket', tournamentId: state.tournamentId })}
         />
@@ -217,8 +227,8 @@ function App() {
           votes={matchVotes}
           participants={tournament.participants}
           currentUser={currentUser}
-          onConfirmVote={(proposalId) => {
-            if (currentUser) handleVote(match.id, currentUser, proposalId);
+          onConfirmVote={async (proposalId) => {
+            if (currentUser) await handleVote(match.id, currentUser, proposalId);
           }}
           onEnsureBotsVoted={() => ensureBotsVoted(match.id)}
           onBack={() => setState({ screen: 'bracket', tournamentId: state.tournamentId })}
@@ -255,6 +265,7 @@ function App() {
         <WinnerScreen
           winningProposal={winningProposal}
           participants={tournament?.participants ?? []}
+          tournamentName={tournament?.name}
           onNewTournament={handleNewTournament}
         />
       );
@@ -265,8 +276,24 @@ function App() {
 
   return (
     <>
-      {renderScreen()}
+      <a
+        href="#main-content"
+        className="skip-link"
+      >
+        Saltar al contenido principal
+      </a>
+      <main id="main-content" tabIndex={-1}>
+        <Suspense fallback={
+          <div className="min-h-screen flex items-center justify-center" aria-busy="true">
+            <Loader2 className="w-10 h-10 text-blue-400 animate-spin" />
+          </div>
+        }>
+          {renderScreen()}
+        </Suspense>
+      </main>
+      <ThemeToggle />
       <MusicPlayer />
+      <Toaster position="top-center" richColors />
     </>
   );
 }

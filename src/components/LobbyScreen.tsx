@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { supabase, Tournament } from '../lib/supabase';
 import { isBot } from '../lib/mobile';
 import { Play, Copy, Check, Loader2, CheckCircle2, Clock } from 'lucide-react';
@@ -6,7 +7,7 @@ import { Play, Copy, Check, Loader2, CheckCircle2, Clock } from 'lucide-react';
 interface LobbyScreenProps {
   tournament: Tournament;
   currentUser: string | null;
-  onStart: () => void;
+  onStart: () => void | Promise<void>;
 }
 
 export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyScreenProps) {
@@ -44,22 +45,24 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
   const shareUrl = `${window.location.origin}${window.location.pathname}#${tournament.id}`;
 
   const handleCopy = () => {
-    try {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      });
-    } catch {
-      const input = document.getElementById('lobby-url-input') as HTMLInputElement;
-      if (input) { input.select(); document.execCommand('copy'); }
+    navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    }
+    }).catch(() => {
+      const input = document.getElementById('lobby-url-input') as HTMLInputElement;
+      if (input) input.select();
+      toast('Selecciona y copia manualmente (Ctrl+C)', { duration: 3000 });
+      setCopied(false);
+    });
   };
 
   const handleStart = async () => {
     setStarting(true);
-    await onStart();
+    try {
+      await onStart();
+    } finally {
+      setStarting(false);
+    }
   };
 
   return (
@@ -68,7 +71,9 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
 
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">Sala de espera</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">
+            {tournament.name && tournament.name !== 'Travel Tournament' ? tournament.name : 'Sala de espera'}
+          </h1>
           <p className="text-xl text-slate-300/90">
             Que todos abran el enlace y elijan su nombre antes de empezar
           </p>
@@ -132,10 +137,13 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
               readOnly
               value={shareUrl}
               onClick={e => (e.target as HTMLInputElement).select()}
+              aria-label="Enlace del lobby para compartir"
               className="input-modern flex-1 px-3 py-2 text-white text-sm font-mono cursor-text"
             />
             <button
+              type="button"
               onClick={handleCopy}
+              aria-label={copied ? 'Enlace copiado' : 'Copiar enlace del lobby'}
               className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
                 copied
                   ? 'bg-emerald-500/20 border border-emerald-400/40 text-emerald-300'
@@ -156,8 +164,10 @@ export default function LobbyScreen({ tournament, currentUser, onStart }: LobbyS
         ) : (
           <div>
             <button
+              type="button"
               onClick={handleStart}
               disabled={!allJoined}
+              aria-label={allJoined ? 'Comenzar sorteo de emparejamientos' : 'Esperando a que todos se unan'}
               className={`w-full py-5 font-extrabold text-xl rounded-2xl transition-all flex items-center justify-center gap-3 ${
                 allJoined
                   ? 'btn-primary'
