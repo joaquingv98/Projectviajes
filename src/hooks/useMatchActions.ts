@@ -78,27 +78,38 @@ export function useMatchActions(tournament: Tournament | null) {
     if (isEvenMatch) {
       await supabase.from('matches').update({
         player1_name: winnerName,
-        status: nextMatch.player2_name ? 'proposing' : 'pending',
+        status: 'pending',
       }).eq('id', nextMatch.id);
     } else {
       await supabase.from('matches').update({
         player2_name: winnerName,
-        status: 'proposing',
+        status: 'pending',
       }).eq('id', nextMatch.id);
     }
 
-    // Si ambos finalistas son bots, generar propuestas y pasar a votación automáticamente
-    const p1 = isEvenMatch ? winnerName : nextMatch.player1_name;
-    const p2 = isEvenMatch ? nextMatch.player2_name : winnerName;
-    if (p1 && p2 && p1 !== 'TBD' && p2 !== 'TBD' && isBot(p1, tournamentId) && isBot(p2, tournamentId)) {
-      const mock1 = generateMockProposal();
-      const mock2 = generateMockProposal();
-      await submitProposalSecure(nextMatch.id, p1, tournamentId, mock1);
-      await submitProposalSecure(nextMatch.id, p2, tournamentId, mock2);
-      const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-      await supabase.from('matches')
-        .update({ status: 'voting', voting_ends_at: votingEndsAt })
-        .eq('id', nextMatch.id);
+    const { data: roundMatches } = await supabase.from('matches')
+      .select('status').eq('tournament_id', tournamentId).eq('round', completedMatch.round);
+    const allRoundComplete = roundMatches?.every(m => m.status === 'completed') ?? false;
+
+    if (allRoundComplete) {
+      const { data: nextRoundMatches } = await supabase.from('matches')
+        .select('id, player1_name, player2_name, status')
+        .eq('tournament_id', tournamentId).eq('round', nextRound);
+      for (const m of nextRoundMatches ?? []) {
+        if (m.player1_name && m.player1_name !== 'TBD' && m.player2_name && m.player2_name !== 'TBD' && m.status === 'pending') {
+          await supabase.from('matches').update({ status: 'proposing' }).eq('id', m.id);
+          if (isBot(m.player1_name, tournamentId) && isBot(m.player2_name, tournamentId)) {
+            const mock1 = generateMockProposal();
+            const mock2 = generateMockProposal();
+            await submitProposalSecure(m.id, m.player1_name, tournamentId, mock1);
+            await submitProposalSecure(m.id, m.player2_name, tournamentId, mock2);
+            const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+            await supabase.from('matches')
+              .update({ status: 'voting', voting_ends_at: votingEndsAt })
+              .eq('id', m.id);
+          }
+        }
+      }
     }
   }, [submitProposalSecure]);
 

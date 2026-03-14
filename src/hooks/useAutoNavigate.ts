@@ -57,7 +57,7 @@ export function useAutoNavigate(
     }
 
     const votingMatch = matchData.find(m => m.status === 'voting');
-    if (votingMatch) {
+    if (votingMatch && currentState.screen !== 'bracket') {
       if (
         currentState.screen !== 'voting' ||
         (currentState.screen === 'voting' && currentState.matchId !== votingMatch.id)
@@ -68,7 +68,7 @@ export function useAutoNavigate(
     }
 
     const proposingMatch = matchData.find(m => m.status === 'proposing');
-    if (proposingMatch) {
+    if (proposingMatch && currentState.screen !== 'bracket') {
       if (
         currentState.screen !== 'match' ||
         (currentState.screen === 'match' && currentState.matchId !== proposingMatch.id)

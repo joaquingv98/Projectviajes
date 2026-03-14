@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Match, Proposal } from '../lib/supabase';
 import { Plane, Send, Clock, ChevronLeft, ChevronRight, CalendarDays, Globe } from 'lucide-react';
-import { isMobileDevice } from '../lib/mobile';
-
 interface MatchSubmissionProps {
   match: Match;
   proposals: Proposal[];
@@ -145,15 +143,13 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Al abrir, mostrar los meses de las fechas seleccionadas (o el mes actual)
+  // Al abrir, mostrar el mes de la fecha seleccionada o el actual
   useEffect(() => {
     if (open) {
       if (dateFrom) {
         const [y, m] = dateFrom.split('-').map(Number);
-        const monthIdx = m - 1;
         setViewYear(y);
-        // Mostrar mes anterior + mes de ida para que la selección sea visible
-        setViewMonth(Math.max(0, monthIdx - 1));
+        setViewMonth(m - 1);
       } else {
         const now = new Date();
         setViewYear(now.getFullYear());
@@ -161,9 +157,6 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
       }
     }
   }, [open, dateFrom]);
-
-  const month2 = viewMonth === 11 ? 0 : viewMonth + 1;
-  const year2  = viewMonth === 11 ? viewYear + 1 : viewYear;
 
   const prevM = () => {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
@@ -237,39 +230,26 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
             {!dateFrom ? 'Selecciona la fecha de ida' : !dateTo ? 'Selecciona la fecha de vuelta' : '¡Fechas seleccionadas!'}
           </p>
 
-          {/* Navegación - un mes en móvil, dos en desktop */}
-          <div className={`flex min-w-0 ${isMobileDevice() ? 'flex-col items-center' : 'items-start gap-4 sm:gap-6'}`}>
-            {isMobileDevice() ? (
-              <>
-                <div className="flex items-center justify-between w-full mb-2">
-                  <button type="button" onClick={prevM} aria-label="Mes anterior" className="text-white/50 hover:text-white p-2 transition-colors">
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button type="button" onClick={nextM} aria-label="Mes siguiente" className="text-white/50 hover:text-white p-2 transition-colors">
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                </div>
-                <CalendarMonth
-                  year={viewYear} month={viewMonth}
-                  dateFrom={dateFrom} dateTo={dateTo}
-                  hovered={hovered} today={today}
-                  onSelect={handleSelect}
-                  onHover={setHovered}
-                />
-              </>
-            ) : (
-              <>
-                <button type="button" onClick={prevM} aria-label="Mes anterior" className="text-white/50 hover:text-white mt-1 transition-colors">
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <CalendarMonth year={viewYear} month={viewMonth} dateFrom={dateFrom} dateTo={dateTo} hovered={hovered} today={today} onSelect={handleSelect} onHover={setHovered} />
-                <div className="w-px bg-blue-500/20 self-stretch mx-1" />
-                <CalendarMonth year={year2} month={month2} dateFrom={dateFrom} dateTo={dateTo} hovered={hovered} today={today} onSelect={handleSelect} onHover={setHovered} />
-                <button type="button" onClick={nextM} aria-label="Mes siguiente" className="text-white/50 hover:text-white mt-1 transition-colors">
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </>
-            )}
+          {/* Navegación - un único mes */}
+          <div className="flex min-w-0 flex-col items-center">
+            <div className="flex items-center justify-between w-full mb-2">
+              <button type="button" onClick={prevM} aria-label="Mes anterior" className="text-white/50 hover:text-white p-2 transition-colors">
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button type="button" onClick={nextM} aria-label="Mes siguiente" className="text-white/50 hover:text-white p-2 transition-colors">
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
+            <CalendarMonth
+              year={viewYear}
+              month={viewMonth}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              hovered={hovered}
+              today={today}
+              onSelect={handleSelect}
+              onHover={setHovered}
+            />
           </div>
 
           {/* Resumen */}

@@ -21,7 +21,6 @@ import TiebreakerScreen from './components/TiebreakerScreen';
 import UserIdentification from './components/UserIdentification';
 import LobbyScreen from './components/LobbyScreen';
 import MusicPlayer from './components/MusicPlayer';
-import ThemeToggle from './components/ThemeToggle';
 import { Loader2 } from 'lucide-react';
 
 const DrawAnimation = lazy(() => import('./components/DrawAnimation'));
@@ -283,6 +282,8 @@ function App() {
       return (
         <Bracket
           matches={matches}
+          proposals={proposals}
+          votes={votes}
           tournamentSize={tournament.num_participants}
           currentUser={currentUser}
           tournamentId={tournament.id}
@@ -407,7 +408,6 @@ function App() {
           {renderScreen()}
         </Suspense>
       </main>
-      <ThemeToggle />
       <MusicPlayer />
       <Toaster position="top-center" richColors />
     </>

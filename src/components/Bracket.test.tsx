@@ -28,6 +28,8 @@ describe('Bracket', () => {
     render(
       <Bracket
         matches={matches}
+        proposals={[]}
+        votes={[]}
         tournamentSize={2}
         currentUser="Alice"
         tournamentId="t1"
@@ -45,6 +47,8 @@ describe('Bracket', () => {
     render(
       <Bracket
         matches={matches}
+        proposals={[]}
+        votes={[]}
         tournamentSize={2}
         currentUser="Alice"
         tournamentId="t1"

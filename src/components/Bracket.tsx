@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { Match, TIEBREAKER_PHASES } from '../lib/supabase';
-import { toast } from 'sonner';
-import { Trophy, Clock, CheckCircle, Copy, Check, Share2, Vote } from 'lucide-react';
+import { Match, Proposal, Vote as VoteType, TIEBREAKER_PHASES } from '../lib/supabase';
+import { Trophy, Clock, CheckCircle, Vote, Play, Eye, Flame } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
 
 const ROUND_ORDER: Record<string, number> = { quarterfinals: 1, semifinals: 2, final: 3 };
 
 interface BracketProps {
   matches: Match[];
+  proposals: Proposal[];
+  votes: VoteType[];
   tournamentSize: number;
   currentUser: string | null;
   tournamentId: string;
@@ -17,8 +18,26 @@ interface BracketProps {
   recentWinner?: { name: string; round: string } | null;
 }
 
+function getMatchResult(match: Match, proposals: Proposal[], votes: VoteType[]): string | null {
+  if (match.status !== 'completed' || !match.winner_name) return null;
+  const matchProposals = proposals.filter(p => p.match_id === match.id);
+  if (matchProposals.length < 2) return null;
+  const matchVotes = votes.filter(v => v.match_id === match.id);
+  const p1Proposal = matchProposals.find(p => p.player_name === match.player1_name);
+  const p2Proposal = matchProposals.find(p => p.player_name === (match.player2_name ?? ''));
+  if (!p1Proposal || !p2Proposal) return null;
+  const p1Count = matchVotes.filter(v => v.proposal_id === p1Proposal.id).length;
+  const p2Count = matchVotes.filter(v => v.proposal_id === p2Proposal.id).length;
+  const [winnerVotes, loserVotes] = match.winner_name === match.player1_name
+    ? [p1Count, p2Count]
+    : [p2Count, p1Count];
+  return `${winnerVotes}-${loserVotes}`;
+}
+
 function Bracket({
   matches,
+  proposals,
+  votes,
   tournamentSize,
   currentUser,
   tournamentId,
@@ -27,9 +46,8 @@ function Bracket({
   onStartMatch,
   recentWinner,
 }: BracketProps) {
-  const [copied, setCopied] = useState(false);
+  void tournamentId; // prop de API; uso futuro
   const [starting, setStarting] = useState(false);
-  const [shareExpanded, setShareExpanded] = useState(false);
 
   const [advanceNotif, setAdvanceNotif] = useState<{ name: string; toRound: string } | null>(null);
   const [notifVisible, setNotifVisible] = useState(false);
@@ -101,20 +119,60 @@ function Bracket({
     await onStartMatch(nextMatch);
     setStarting(false);
   }, [nextMatch, onStartMatch]);
+  const isMobile = isMobileDevice();
 
-  const shareUrl = `${window.location.origin}${window.location.pathname}#${tournamentId}`;
+  const getActionButtonStyle = useCallback((
+    variant: 'gold' | 'green' | 'orange' | 'ghost',
+    disabled = false
+  ): React.CSSProperties => {
+    const variants = {
+      gold: {
+        background: 'linear-gradient(135deg, rgba(255,191,36,0.96) 0%, rgba(255,140,55,0.96) 100%)',
+        color: '#08111f',
+        border: '1px solid rgba(255,226,148,0.35)',
+        boxShadow: '0 16px 38px rgba(255,176,32,0.25), inset 0 1px 0 rgba(255,255,255,0.35)',
+      },
+      green: {
+        background: 'linear-gradient(135deg, rgba(34,197,94,0.96) 0%, rgba(20,184,166,0.96) 100%)',
+        color: '#f8fbff',
+        border: '1px solid rgba(134,239,172,0.28)',
+        boxShadow: '0 16px 38px rgba(16,185,129,0.24), inset 0 1px 0 rgba(255,255,255,0.22)',
+      },
+      orange: {
+        background: 'linear-gradient(135deg, rgba(249,115,22,0.96) 0%, rgba(239,68,68,0.96) 100%)',
+        color: '#fff7ed',
+        border: '1px solid rgba(253,186,116,0.28)',
+        boxShadow: '0 16px 38px rgba(249,115,22,0.24), inset 0 1px 0 rgba(255,255,255,0.18)',
+      },
+      ghost: {
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
+        color: '#eff6ff',
+        border: '1px solid rgba(148,163,184,0.26)',
+        boxShadow: '0 14px 32px rgba(2,8,23,0.22), inset 0 1px 0 rgba(255,255,255,0.08)',
+      },
+    } as const;
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }).catch(() => {
-      const input = document.getElementById('share-url-input') as HTMLInputElement;
-      if (input) input.select();
-      toast('Selecciona y copia manualmente (Ctrl+C)', { duration: 3000 });
-      setCopied(false);
-    });
-  }, [shareUrl]);
+    return {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      minHeight: variant === 'gold' ? 62 : 54,
+      padding: isMobile ? '13px 18px' : '14px 22px',
+      borderRadius: 18,
+      fontWeight: variant === 'gold' ? 900 : 800,
+      fontSize: variant === 'gold' ? (isMobile ? 16 : 18) : (isMobile ? 14 : 15),
+      letterSpacing: 0.2,
+      cursor: disabled ? 'wait' : 'pointer',
+      transition: 'transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)',
+      width: isMobile ? '100%' : (variant === 'gold' ? 'min(100%, 640px)' : 'auto'),
+      maxWidth: '100%',
+      opacity: disabled ? 0.55 : 1,
+      ...variants[variant],
+    };
+  }, [isMobile]);
 
   const isMyMatch = useCallback((match: Match) =>
     currentUser &&
@@ -132,6 +190,7 @@ function Bracket({
     const isCompleted = match.status === 'completed';
     const isPending = match.status === 'pending';
     const mine = isMyMatch(match);
+    const resultText = isCompleted ? getMatchResult(match, proposals, votes) : null;
 
     // ¿Alguno de los jugadores de esta tarjeta acaba de avanzar aquí?
     const p1Highlighted = match.player1_name && highlightedNames.has(match.player1_name);
@@ -213,7 +272,13 @@ function Bracket({
           {match.winner_name === match.player1_name && <Trophy style={{ width: 22, height: 22, color: '#facc15', flexShrink: 0 }} />}
         </div>
 
-        <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 14, fontWeight: 900, color: 'rgba(147,197,253,0.6)', letterSpacing: 6 }}>VS</div>
+        <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 14, fontWeight: 900, color: 'rgba(147,197,253,0.6)', letterSpacing: 6 }}>
+          {resultText ? (
+            <span style={{ color: '#4ade80', letterSpacing: 2 }}>{resultText}</span>
+          ) : (
+            'VS'
+          )}
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, borderTop: match.winner_name === match.player2_name ? '2px solid rgba(74,222,128,0.5)' : '2px solid rgba(255,255,255,0.1)' }}>
           <span style={nameStyle(match.winner_name === match.player2_name && !!match.player2_name, match.player2_name)}>
@@ -227,7 +292,7 @@ function Bracket({
         <div style={{ position: 'absolute', top: 12, right: 12 }}>{getStatusIcon(match)}</div>
       </button>
     );
-  }, [onMatchClick, highlightedNames, isMyMatch, getStatusIcon]);
+  }, [onMatchClick, highlightedNames, isMyMatch, getStatusIcon, proposals, votes]);
 
   const labelStyle = (color = '#93c5fd'): React.CSSProperties => ({
     textAlign: 'center',
@@ -263,148 +328,81 @@ function Bracket({
           </p>
         )}
 
-        {/* Botón Comenzar siguiente partido */}
-        {nextMatch && (
-          <button
-            type="button"
-            onClick={handleStart}
-            disabled={starting}
-            aria-label={starting ? 'Iniciando partido' : `Comenzar partido ${nextMatch.player1_name} vs ${nextMatch.player2_name}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              background: starting ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #eab308, #ca8a04)',
-              color: starting ? 'rgba(255,255,255,0.4)' : '#000',
-              fontWeight: 800, fontSize: 18,
-              padding: '14px 32px', borderRadius: 16, border: 'none',
-              cursor: starting ? 'wait' : 'pointer', marginBottom: 20,
-              boxShadow: starting ? 'none' : '0 0 30px rgba(234,179,8,0.5)',
-              transition: 'all 0.2s',
-            }}
-          >
-            {starting ? '⏳ Iniciando...' : `▶ Comenzar: ${nextMatch.player1_name} vs ${nextMatch.player2_name}`}
-          </button>
-        )}
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'stretch',
+          gap: 12,
+          margin: '0 auto 18px',
+          width: '100%',
+          maxWidth: isMobile ? 560 : 920,
+        }}>
+          {nextMatch && (
+            <button
+              type="button"
+              onClick={handleStart}
+              disabled={starting}
+              aria-label={starting ? 'Iniciando partido' : `Comenzar partido ${nextMatch.player1_name} vs ${nextMatch.player2_name}`}
+              style={getActionButtonStyle('gold', starting)}
+            >
+              <Play style={{ width: 18, height: 18 }} />
+              {starting ? 'Iniciando partido...' : `Comenzar ${nextMatch.player1_name} vs ${nextMatch.player2_name}`}
+            </button>
+          )}
 
-        {/* Botón "Ir a votar" - todos deben votar */}
-        {votingMatch && (
-          <button
-            type="button"
-            onClick={() => onMatchClick(votingMatch)}
-            aria-label={`Ir a votar en partido ${votingMatch.player1_name} vs ${votingMatch.player2_name}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              background: 'linear-gradient(135deg, #16a34a, #15803d)',
-              color: 'white', fontWeight: 800, fontSize: 18,
-              padding: '14px 32px', borderRadius: 16, border: 'none',
-              cursor: 'pointer', marginBottom: 12,
-              boxShadow: '0 0 30px rgba(22,163,74,0.5)',
-            }}
-          >
-            <Vote style={{ width: 22, height: 22 }} />
-            ¡Ir a votar! {votingMatch.player1_name} vs {votingMatch.player2_name}
-          </button>
-        )}
-        {/* Botón "Ir a tiebreak" */}
-        {tiebreakerMatch && !votingMatch && (
-          <button
-            type="button"
-            onClick={() => onMatchClick(tiebreakerMatch)}
-            aria-label={`Ir a minuto de oro entre ${tiebreakerMatch.player1_name} y ${tiebreakerMatch.player2_name}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              background: 'linear-gradient(135deg, #ea580c, #c2410c)',
-              color: 'white', fontWeight: 800, fontSize: 18,
-              padding: '14px 32px', borderRadius: 16, border: 'none',
-              cursor: 'pointer', marginBottom: 12,
-              boxShadow: '0 0 30px rgba(234,88,12,0.5)',
-            }}
-          >
-            ▶ Minuto de oro / Tiebreak
-          </button>
-        )}
-        {/* Botón "Ir a mi partido" (proponer) - solo si es tu partido */}
-        {proposingMatch && (() => {
-          const isMine = currentUser && (proposingMatch.player1_name === currentUser || proposingMatch.player2_name === currentUser);
-          if (!isMine) return null;
-          return (
+          {votingMatch && (
+            <button
+              type="button"
+              onClick={() => onMatchClick(votingMatch)}
+              aria-label={`Ir a votar en partido ${votingMatch.player1_name} vs ${votingMatch.player2_name}`}
+              style={getActionButtonStyle('green')}
+            >
+              <Vote style={{ width: 18, height: 18 }} />
+              Votar ahora: {votingMatch.player1_name} vs {votingMatch.player2_name}
+            </button>
+          )}
+
+          {tiebreakerMatch && !votingMatch && (
+            <button
+              type="button"
+              onClick={() => onMatchClick(tiebreakerMatch)}
+              aria-label={`Ir a minuto de oro entre ${tiebreakerMatch.player1_name} y ${tiebreakerMatch.player2_name}`}
+              style={getActionButtonStyle('orange')}
+            >
+              <Flame style={{ width: 18, height: 18 }} />
+              Minuto de oro / Tiebreak
+            </button>
+          )}
+
+          {proposingMatch && (() => {
+            const isMine = currentUser && (proposingMatch.player1_name === currentUser || proposingMatch.player2_name === currentUser);
+            if (!isMine) return null;
+            return (
+              <button
+                type="button"
+                onClick={() => onMatchClick(proposingMatch)}
+                aria-label="Ir a mi partido para enviar propuesta"
+                style={getActionButtonStyle('gold')}
+              >
+                <Play style={{ width: 18, height: 18 }} />
+                Ir a mi partido
+              </button>
+            );
+          })()}
+
+          {proposingMatch && !(currentUser && (proposingMatch.player1_name === currentUser || proposingMatch.player2_name === currentUser)) && (
             <button
               type="button"
               onClick={() => onMatchClick(proposingMatch)}
-              aria-label="Ir a mi partido para enviar propuesta"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 10,
-                background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                color: '#000', fontWeight: 800, fontSize: 18,
-                padding: '14px 32px', borderRadius: 16, border: 'none',
-                cursor: 'pointer', marginBottom: 12,
-                boxShadow: '0 0 30px rgba(234,179,8,0.5)',
-              }}
+              aria-label="Ver partido en curso"
+              style={getActionButtonStyle('ghost')}
             >
-              ▶ Ir a mi partido: enviar propuesta
+              <Eye style={{ width: 18, height: 18 }} />
+              Ver partido en curso
             </button>
-          );
-        })()}
-        {/* Si hay proposing pero no es tuyo: botón para ver */}
-        {proposingMatch && !(currentUser && (proposingMatch.player1_name === currentUser || proposingMatch.player2_name === currentUser)) && (
-          <button
-            type="button"
-            onClick={() => onMatchClick(proposingMatch)}
-            aria-label="Ver partido en curso"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)',
-              color: 'white', fontWeight: 600, fontSize: 16,
-              padding: '12px 24px', borderRadius: 16, cursor: 'pointer', marginBottom: 12,
-            }}
-          >
-            Ver partido en curso
-          </button>
-        )}
-
-        {/* Caja para compartir - colapsable en móvil */}
-        {isMobileDevice() ? (
-          shareExpanded ? (
-            <div className="share-box-mobile" style={{
-              display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: 16, padding: '14px 20px', maxWidth: 520, width: '100%',
-            }}>
-              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 }}>
-                  Comparte
-                </span>
-                <button type="button" onClick={() => setShareExpanded(false)} aria-label="Cerrar compartir" style={{ background: 'none', border: 'none', color: 'white', fontSize: 18, cursor: 'pointer', padding: 4 }}>×</button>
-              </div>
-              <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
-                <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()} aria-label="Enlace del torneo para compartir"
-                  style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 12, fontFamily: 'monospace', cursor: 'text', outline: 'none' }} />
-                <button type="button" onClick={handleCopy} aria-label={copied ? 'Enlace copiado' : 'Copiar enlace del torneo'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                  {copied ? <><Check style={{ width: 14, height: 14, color: '#4ade80' }} /> Copiado</> : <><Copy style={{ width: 14, height: 14 }} /> Copiar</>}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setShareExpanded(true)} aria-label="Compartir enlace del torneo" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 12, padding: '10px 20px', color: '#93c5fd', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              <Share2 style={{ width: 18, height: 18 }} /> Compartir enlace
-            </button>
-          )
-        ) : (
-          <div className="share-box-mobile" style={{
-            display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 16, padding: '14px 20px', maxWidth: 520, width: '100%',
-          }}>
-            <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 }}>Comparte este enlace con tus amigos</span>
-            <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center' }}>
-              <input id="share-url-input" readOnly value={shareUrl} onClick={e => (e.target as HTMLInputElement).select()} aria-label="Enlace del torneo para compartir"
-                style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 13, fontFamily: 'monospace', cursor: 'text', outline: 'none' }} />
-              <button type="button" onClick={handleCopy} aria-label={copied ? 'Enlace copiado' : 'Copiar enlace del torneo'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: copied ? 'rgba(74,222,128,0.2)' : 'rgba(59,130,246,0.4)', border: `1px solid ${copied ? '#4ade80' : 'rgba(59,130,246,0.6)'}`, color: 'white', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                {copied ? <><Check style={{ width: 14, height: 14, color: '#4ade80' }} /> Copiado</> : <><Copy style={{ width: 14, height: 14 }} /> Copiar</>}
-              </button>
-            </div>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>También puedes seleccionar y copiar el enlace manualmente</span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Overlay animación de avance */}
