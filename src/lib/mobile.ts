@@ -49,7 +49,7 @@ const MOCK_DESTINOS = [
   'Islandia', 'Croacia', 'Ámsterdam', 'Berlín, Alemania', 'Praga, República Checa',
 ];
 
-export function generateMockProposal(_playerName: string): {
+export function generateMockProposal(): {
   flight_link: string;
   price: number;
   destination: string;

@@ -61,7 +61,7 @@ export default function TiebreakerScreen({
     if (!isBot(defendingPlayer, match.tournament_id)) return;
     const t = setTimeout(() => onAdvancePhase(), 2500);
     return () => clearTimeout(t);
-  }, [phase, p1, p2, onAdvancePhase]);
+  }, [phase, p1, p2, match.tournament_id, onAdvancePhase]);
 
   // Reset roulette state when phase changes to roulette
   useEffect(() => {
@@ -86,7 +86,7 @@ export default function TiebreakerScreen({
     };
     const t = setTimeout(spin, 500);
     return () => clearTimeout(t);
-  }, [phase]);
+  }, [phase, p1, p2, match.winner_name]);
 
   const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
@@ -215,7 +215,11 @@ export default function TiebreakerScreen({
   // SEGUNDA VOTACIÓN (tiebreak_vote)
   // ─────────────────────────────────────────
   if (phase === 'tiebreak_vote') {
-    const canVote = !myVote;
+    const votingTimeExpired = match.voting_ends_at
+      ? Date.now() >= new Date(match.voting_ends_at).getTime()
+      : false;
+    const everyoneVoted = votes.length >= participants.length;
+    const canResolve = everyoneVoted || votingTimeExpired;
     return (
       <div className="min-h-screen p-6">
         <div className="max-w-6xl mx-auto">
@@ -235,8 +239,23 @@ export default function TiebreakerScreen({
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">{p1} vs {p2}</h1>
             <p className="text-blue-200">
-              {myVote ? 'Voto registrado — esperando al resto...' : '¡Elige ahora!'}
+              {votingTimeExpired
+                ? '⏱ Tiempo agotado — resuelve para continuar'
+                : everyoneVoted
+                ? '¡Todos han votado!'
+                : myVote
+                ? 'Voto registrado — puedes cambiar hasta que todos voten'
+                : '¡Elige ahora!'}
             </p>
+            {canResolve && (
+              <button
+                type="button"
+                onClick={onAdvancePhase}
+                className="mt-4 btn-primary px-6 py-3"
+              >
+                Resolver y continuar →
+              </button>
+            )}
           </div>
 
           {/* Tarjetas de voto directo */}
@@ -256,18 +275,22 @@ export default function TiebreakerScreen({
                 <div className="text-white text-3xl font-bold mb-4">{p.price} €</div>
                 <button
                   type="button"
-                  onClick={() => canVote && onVote(p.id)}
-                  disabled={!!myVote}
+                  onClick={() => onVote(p.id)}
+                  disabled={everyoneVoted}
                   aria-label={myVote?.proposal_id === p.id ? 'Tu voto' : `Votar por ${p.destination || p.player_name}`}
                   className={`w-full py-3 rounded-lg font-bold transition-all ${
                     myVote?.proposal_id === p.id
-                      ? 'bg-green-500 text-white cursor-default'
-                      : canVote
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-xl hover:shadow-orange-500/50 hover:scale-[1.02]'
-                      : 'bg-white/10 text-white/40 cursor-not-allowed'
+                      ? 'bg-green-500 text-white'
+                      : everyoneVoted
+                      ? 'bg-white/10 text-white/40 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-xl hover:shadow-orange-500/50 hover:scale-[1.02] cursor-pointer'
                   }`}
                 >
-                  {myVote?.proposal_id === p.id ? '✓ Tu voto' : myVote ? 'Ya has votado' : '¡Votar ahora!'}
+                  {myVote?.proposal_id === p.id
+                    ? '✓ Tu voto'
+                    : everyoneVoted
+                    ? 'Ya has votado'
+                    : 'Votar por este'}
                 </button>
               </div>
             ))}

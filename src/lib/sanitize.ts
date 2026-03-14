@@ -7,15 +7,21 @@ const MAX_TEXT_LENGTH = 200;
 const MAX_PRICE = 999999;
 const MIN_PRICE = 0;
 
-/** Caracteres de control y NULL */
-const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
+function stripControlChars(value: string): string {
+  return Array.from(value)
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    })
+    .join('');
+}
 
 /**
  * Sanitiza una URL: solo permite http/https, longitud máxima.
  * @returns URL válida o null si no es válida
  */
 export function sanitizeUrl(url: string): string | null {
-  const trimmed = url.trim().replace(CONTROL_CHARS, '');
+  const trimmed = stripControlChars(url.trim());
   if (trimmed.length === 0 || trimmed.length > MAX_URL_LENGTH) return null;
 
   try {
@@ -31,10 +37,7 @@ export function sanitizeUrl(url: string): string | null {
  * Sanitiza texto: trim, elimina caracteres de control, limita longitud.
  */
 export function sanitizeText(text: string, maxLen = MAX_TEXT_LENGTH): string {
-  return text
-    .trim()
-    .replace(CONTROL_CHARS, '')
-    .slice(0, maxLen);
+  return stripControlChars(text.trim()).slice(0, maxLen);
 }
 
 /**

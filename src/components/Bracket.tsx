@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Trophy, Clock, CheckCircle, Copy, Check, Share2, Vote } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
 
+const ROUND_ORDER: Record<string, number> = { quarterfinals: 1, semifinals: 2, final: 3 };
+
 interface BracketProps {
   matches: Match[];
   tournamentSize: number;
@@ -86,12 +88,11 @@ function Bracket({
     [matches]
   );
 
-  const roundOrder: Record<string, number> = { quarterfinals: 1, semifinals: 2, final: 3 };
   const nextMatch = useMemo(() => {
     if (hasActiveMatch) return undefined;
     return matches
       .filter(m => m.status === 'pending' && m.player1_name !== 'TBD' && m.player2_name && m.player2_name !== 'TBD')
-      .sort((a, b) => (roundOrder[a.round] - roundOrder[b.round]) || (a.match_number - b.match_number))[0];
+      .sort((a, b) => (ROUND_ORDER[a.round] - ROUND_ORDER[b.round]) || (a.match_number - b.match_number))[0];
   }, [matches, hasActiveMatch]);
 
   const handleStart = useCallback(async () => {

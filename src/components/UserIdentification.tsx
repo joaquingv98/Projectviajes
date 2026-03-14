@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { claimParticipant } from '../lib/participantIdentity';
 import { UserCircle2, Loader2, Lock } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface UserIdentificationProps {
   tournamentId: string;
-  onIdentify: (name: string, tournamentId: string) => void;
+  onIdentify: (name: string, tournamentId: string, token: string) => void;
 }
 
 export default function UserIdentification({ tournamentId, onIdentify }: UserIdentificationProps) {
@@ -51,12 +52,20 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
 
   const handleSelect = async (name: string) => {
     setSelecting(name);
+    setError('');
+    try {
+      const token = await claimParticipant(tournamentId, name);
     // Unirse al canal de presencia con el nombre elegido
     // (los demás lo verán como "ocupado" en tiempo real)
-    if (channelRef.current) {
-      await channelRef.current.track({ name });
+      if (channelRef.current) {
+        await channelRef.current.track({ name });
+      }
+      onIdentify(name, tournamentId, token);
+    } catch (err) {
+      console.error('Error reclamando participante:', err);
+      setError('Ese nombre ya ha sido reclamado o no se pudo verificar. Prueba con otro participante.');
+      setSelecting(null);
     }
-    onIdentify(name, tournamentId);
   };
 
   return (

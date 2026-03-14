@@ -1,10 +1,52 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase, Tournament, Match, TIEBREAKER_PHASES, resolveVotes } from '../lib/supabase';
+import { getParticipantToken } from '../lib/participantIdentity';
 import { validateProposal } from '../lib/sanitize';
 import { isBot, generateMockProposal } from '../lib/mobile';
 
 export function useMatchActions(tournament: Tournament | null) {
+  const getTokenOrThrow = useCallback((tournamentId: string, participantName: string) => {
+    const token = getParticipantToken(tournamentId, participantName);
+    if (!token) {
+      throw new Error(`Missing participant token for ${participantName}`);
+    }
+    return token;
+  }, []);
+
+  const submitProposalSecure = useCallback(async (
+    matchId: string,
+    playerName: string,
+    tournamentId: string,
+    proposal: { flight_link: string; price: number; destination: string | null; dates: string | null }
+  ) => {
+    const { error } = await supabase.rpc('submit_proposal_secure', {
+      p_match_id: matchId,
+      p_player_name: playerName,
+      p_participant_token: getTokenOrThrow(tournamentId, playerName),
+      p_flight_link: proposal.flight_link,
+      p_price: proposal.price,
+      p_destination: proposal.destination,
+      p_dates: proposal.dates,
+    });
+    if (error) throw error;
+  }, [getTokenOrThrow]);
+
+  const castVoteSecure = useCallback(async (
+    matchId: string,
+    voterName: string,
+    tournamentId: string,
+    proposalId: string
+  ) => {
+    const { error } = await supabase.rpc('cast_vote_secure', {
+      p_match_id: matchId,
+      p_voter_name: voterName,
+      p_participant_token: getTokenOrThrow(tournamentId, voterName),
+      p_proposal_id: proposalId,
+    });
+    if (error) throw error;
+  }, [getTokenOrThrow]);
+
   const advanceWinner = useCallback(async (
     tournamentId: string,
     completedMatch: Match,
@@ -49,18 +91,16 @@ export function useMatchActions(tournament: Tournament | null) {
     const p1 = isEvenMatch ? winnerName : nextMatch.player1_name;
     const p2 = isEvenMatch ? nextMatch.player2_name : winnerName;
     if (p1 && p2 && p1 !== 'TBD' && p2 !== 'TBD' && isBot(p1, tournamentId) && isBot(p2, tournamentId)) {
-      const mock1 = generateMockProposal(p1);
-      const mock2 = generateMockProposal(p2);
-      await supabase.from('proposals').insert([
-        { match_id: nextMatch.id, player_name: p1, ...mock1 },
-        { match_id: nextMatch.id, player_name: p2, ...mock2 },
-      ]);
+      const mock1 = generateMockProposal();
+      const mock2 = generateMockProposal();
+      await submitProposalSecure(nextMatch.id, p1, tournamentId, mock1);
+      await submitProposalSecure(nextMatch.id, p2, tournamentId, mock2);
       const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
       await supabase.from('matches')
         .update({ status: 'voting', voting_ends_at: votingEndsAt })
         .eq('id', nextMatch.id);
     }
-  }, []);
+  }, [submitProposalSecure]);
 
   const completeMatch = useCallback(async (matchId: string) => {
     const { data: currentMatchCheck } = await supabase
@@ -90,53 +130,9 @@ export function useMatchActions(tournament: Tournament | null) {
   }, [advanceWinner]);
 
   const advanceTiebreakerPhase = useCallback(async (matchId: string) => {
-    const { data: match } = await supabase.from('matches').select('*').eq('id', matchId).single();
-    if (!match) return;
-    if (!TIEBREAKER_PHASES.includes(match.status as typeof TIEBREAKER_PHASES[number])) return;
-
-    if (match.status === 'tiebreak_d1') {
-      await supabase.from('matches').update({
-        status: 'tiebreak_d2',
-        voting_ends_at: new Date(Date.now() + 60_000).toISOString(),
-      }).eq('id', matchId);
-      return;
-    }
-
-    if (match.status === 'tiebreak_d2') {
-      await supabase.from('votes').delete().eq('match_id', matchId);
-      await supabase.from('matches').update({
-        status: 'tiebreak_vote',
-        voting_ends_at: new Date(Date.now() + 5 * 60_000).toISOString(),
-      }).eq('id', matchId);
-      return;
-    }
-
-    if (match.status === 'tiebreak_vote') {
-      const { data: revoteVotes } = await supabase.from('votes').select('*').eq('match_id', matchId);
-      const { data: matchProposals } = await supabase.from('proposals').select('*').eq('match_id', matchId);
-      if (!revoteVotes || !matchProposals || matchProposals.length < 2) return;
-
-      const { winner, isTied } = resolveVotes(revoteVotes, matchProposals);
-
-      if (isTied) {
-        const rouletteWinner = matchProposals[Math.floor(Math.random() * 2)].player_name;
-        await supabase.from('matches').update({
-          status: 'tiebreak_roulette',
-          winner_name: rouletteWinner,
-          voting_ends_at: new Date(Date.now() + 6_000).toISOString(),
-        }).eq('id', matchId);
-      } else {
-        await supabase.from('matches').update({ status: 'completed', winner_name: winner.player_name }).eq('id', matchId);
-        await advanceWinner(match.tournament_id, match, winner.player_name);
-      }
-      return;
-    }
-
-    if (match.status === 'tiebreak_roulette' && match.winner_name) {
-      await supabase.from('matches').update({ status: 'completed' }).eq('id', matchId);
-      await advanceWinner(match.tournament_id, match, match.winner_name);
-    }
-  }, [advanceWinner]);
+    const { error } = await supabase.rpc('advance_tiebreaker_phase', { p_match_id: matchId });
+    if (error) throw error;
+  }, []);
 
   const createLobby = useCallback(async (participants: string[], tournamentName?: string) => {
     const { data: tournamentData, error } = await supabase
@@ -227,12 +223,10 @@ export function useMatchActions(tournament: Tournament | null) {
 
     // Si ambos jugadores son bots, generar propuestas y pasar directo a votación
     if (p2 && isBot(p1, match.tournament_id) && isBot(p2, match.tournament_id)) {
-      const mock1 = generateMockProposal(p1);
-      const mock2 = generateMockProposal(p2);
-      await supabase.from('proposals').insert([
-        { match_id: match.id, player_name: p1, ...mock1 },
-        { match_id: match.id, player_name: p2, ...mock2 },
-      ]);
+      const mock1 = generateMockProposal();
+      const mock2 = generateMockProposal();
+      await submitProposalSecure(match.id, p1, match.tournament_id, mock1);
+      await submitProposalSecure(match.id, p2, match.tournament_id, mock2);
       const votingEndsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
       await supabase.from('matches')
         .update({ status: 'voting', voting_ends_at: votingEndsAt })
@@ -242,7 +236,7 @@ export function useMatchActions(tournament: Tournament | null) {
         .update({ status: 'proposing' })
         .eq('id', match.id);
     }
-  }, []);
+  }, [submitProposalSecure]);
 
   const handleSubmitProposal = useCallback(async (
     matchId: string,
@@ -255,26 +249,22 @@ export function useMatchActions(tournament: Tournament | null) {
       throw new Error('Invalid proposal data');
     }
     try {
-      const { error: insertError } = await supabase.from('proposals').insert({
-        match_id: matchId, player_name: playerName, ...sanitized,
-      });
-      if (insertError) throw insertError;
+      const { data: match } = await supabase
+        .from('matches')
+        .select('player1_name, player2_name, tournament_id')
+        .eq('id', matchId)
+        .single();
 
-      const { data: match } = await supabase.from('matches').select('player1_name, player2_name, tournament_id').eq('id', matchId).single();
+      if (!match) throw new Error('Match not found');
+
+      await submitProposalSecure(matchId, playerName, match.tournament_id, sanitized);
+
       const otherPlayer = match?.player1_name === playerName ? match?.player2_name : match?.player1_name;
 
       // Si el oponente es un bot, generar y enviar su propuesta automáticamente
       if (otherPlayer && match && isBot(otherPlayer, match.tournament_id)) {
-        const mock = generateMockProposal(otherPlayer);
-        const { error: botError } = await supabase.from('proposals').insert({
-          match_id: matchId,
-          player_name: otherPlayer,
-          flight_link: mock.flight_link,
-          price: mock.price,
-          destination: mock.destination,
-          dates: mock.dates,
-        });
-        if (botError) throw botError;
+        const mock = generateMockProposal();
+        await submitProposalSecure(matchId, otherPlayer, match.tournament_id, mock);
       }
 
       const { data: allProposals } = await supabase
@@ -291,13 +281,13 @@ export function useMatchActions(tournament: Tournament | null) {
       toast.error('Error al enviar la propuesta. Comprueba tu conexión e inténtalo de nuevo.');
       throw err;
     }
-  }, []);
+  }, [submitProposalSecure]);
 
   const handleVote = useCallback(async (matchId: string, voterName: string, proposalId: string) => {
-    await supabase.from('votes').upsert(
-      { match_id: matchId, voter_name: voterName, proposal_id: proposalId },
-      { onConflict: 'match_id,voter_name' }
-    );
+    const tournamentId = tournament?.id;
+    if (!tournamentId) return;
+
+    await castVoteSecure(matchId, voterName, tournamentId, proposalId);
 
     if (tournament) {
       const bots = tournament.participants.filter(p => isBot(p, tournament.id));
@@ -308,10 +298,7 @@ export function useMatchActions(tournament: Tournament | null) {
       for (const botName of bots) {
         const randomProposalId = proposalIds[Math.floor(Math.random() * proposalIds.length)];
         if (randomProposalId) {
-          await supabase.from('votes').upsert(
-            { match_id: matchId, voter_name: botName, proposal_id: randomProposalId },
-            { onConflict: 'match_id,voter_name' }
-          );
+          await castVoteSecure(matchId, botName, tournament.id, randomProposalId);
         }
       }
 
@@ -321,25 +308,43 @@ export function useMatchActions(tournament: Tournament | null) {
         await completeMatch(matchId);
       }
     }
-  }, [tournament, completeMatch]);
+  }, [tournament, completeMatch, castVoteSecure]);
+
+  const pickProposalForBot = useCallback(
+    (botName: string, proposalIds: string[], proposals: { id: string; player_name: string }[], p1: string, p2: string | null) => {
+      const isPlayerInMatch = botName === p1 || botName === p2;
+      const ownProposal = proposals.find(pr => pr.player_name === botName);
+      const otherProposalIds = proposalIds.filter(id => id !== ownProposal?.id);
+      const candidates = isPlayerInMatch && otherProposalIds.length > 0 ? otherProposalIds : proposalIds;
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    },
+    []
+  );
 
   const handleTiebreakerVote = useCallback(async (matchId: string, voterName: string, proposalId: string) => {
-    await supabase.from('votes').upsert(
-      { match_id: matchId, voter_name: voterName, proposal_id: proposalId },
-      { onConflict: 'match_id,voter_name' }
-    );
+    const tournamentId = tournament?.id;
+    if (!tournamentId) return;
+
+    await castVoteSecure(matchId, voterName, tournamentId, proposalId);
     if (tournament) {
-      const bots = tournament.participants.filter(p => isBot(p, tournament.id));
-      const { data: proposals } = await supabase.from('proposals').select('id').eq('match_id', matchId);
-      const proposalIds = proposals?.map(p => p.id) ?? [];
+      const { data: match } = await supabase.from('matches').select('player1_name, player2_name').eq('id', matchId).single();
+      const { data: existingVotes } = await supabase.from('votes').select('voter_name').eq('match_id', matchId);
+      const voted = new Set((existingVotes ?? []).map(v => v.voter_name));
+      const p1 = match?.player1_name ?? '';
+      const p2 = match?.player2_name ?? null;
+      const bots = tournament.participants.filter(p => isBot(p, tournament.id) && !voted.has(p));
+      const { data: proposals } = await supabase.from('proposals').select('id, player_name').eq('match_id', matchId);
+      const proposalList = proposals ?? [];
+      const proposalIds = proposalList.map(p => p.id).filter(Boolean);
 
       for (const botName of bots) {
-        const randomProposalId = proposalIds[Math.floor(Math.random() * proposalIds.length)];
-        if (randomProposalId) {
-          await supabase.from('votes').upsert(
-            { match_id: matchId, voter_name: botName, proposal_id: randomProposalId },
-            { onConflict: 'match_id,voter_name' }
-          );
+        try {
+          const botProposalId = pickProposalForBot(botName, proposalIds, proposalList, p1, p2);
+          if (botProposalId) {
+            await castVoteSecure(matchId, botName, tournament.id, botProposalId);
+          }
+        } catch (err) {
+          console.warn(`No se pudo votar por bot ${botName}:`, err);
         }
       }
 
@@ -348,28 +353,37 @@ export function useMatchActions(tournament: Tournament | null) {
         await advanceTiebreakerPhase(matchId);
       }
     }
-  }, [tournament, advanceTiebreakerPhase]);
+  }, [tournament, advanceTiebreakerPhase, castVoteSecure, pickProposalForBot]);
 
   const ensureBotsVoted = useCallback(async (matchId: string) => {
     if (!tournament) return;
-    const { data: match } = await supabase.from('matches').select('status').eq('id', matchId).single();
+    const { data: match } = await supabase.from('matches').select('status, player1_name, player2_name').eq('id', matchId).single();
     if (!match) return;
     const isTiebreakVote = match.status === 'tiebreak_vote';
     if (match.status !== 'voting' && !isTiebreakVote) return;
     const { data: existingVotes } = await supabase.from('votes').select('voter_name').eq('match_id', matchId);
     const voted = new Set((existingVotes ?? []).map(v => v.voter_name));
-    const bots = tournament.participants.filter(p => isBot(p, tournament!.id) && !voted.has(p));
+    let bots = tournament.participants.filter(p => isBot(p, tournament!.id) && !voted.has(p));
+    // En tiebreak: los bots del partido también deben auto-votar, si no la pantalla se bloquea
     if (bots.length === 0) return;
-    const { data: proposals } = await supabase.from('proposals').select('id').eq('match_id', matchId);
-    const proposalIds = proposals?.map(p => p.id).filter(Boolean) ?? [];
+    const { data: proposals } = await supabase.from('proposals').select('id, player_name').eq('match_id', matchId);
+    const proposalList = proposals ?? [];
+    const proposalIds = proposalList.map(p => p.id).filter(Boolean);
     if (proposalIds.length === 0) return;
     for (const botName of bots) {
-      const randomProposalId = proposalIds[Math.floor(Math.random() * proposalIds.length)];
-      if (randomProposalId) {
-        await supabase.from('votes').upsert(
-          { match_id: matchId, voter_name: botName, proposal_id: randomProposalId },
-          { onConflict: 'match_id,voter_name' }
+      try {
+        const proposalId = pickProposalForBot(
+          botName,
+          proposalIds,
+          proposalList,
+          match.player1_name ?? '',
+          match.player2_name ?? null
         );
+        if (proposalId) {
+          await castVoteSecure(matchId, botName, tournament.id, proposalId);
+        }
+      } catch (err) {
+        console.warn(`No se pudo votar por bot ${botName}:`, err);
       }
     }
     const { data: allVotes } = await supabase.from('votes').select('*').eq('match_id', matchId);
@@ -377,7 +391,7 @@ export function useMatchActions(tournament: Tournament | null) {
       if (isTiebreakVote) await advanceTiebreakerPhase(matchId);
       else await completeMatch(matchId);
     }
-  }, [tournament, completeMatch, advanceTiebreakerPhase]);
+  }, [tournament, completeMatch, advanceTiebreakerPhase, castVoteSecure, pickProposalForBot]);
 
   return {
     createLobby,

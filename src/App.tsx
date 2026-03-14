@@ -1,7 +1,14 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Toaster } from 'sonner';
+import { toast } from 'sonner';
 import { Match, TIEBREAKER_PHASES } from './lib/supabase';
 import { setSoloModeBots } from './lib/mobile';
+import {
+  claimSoloIdentity,
+  clearParticipantIdentity,
+  getParticipantIdentity,
+  saveParticipantIdentity,
+} from './lib/participantIdentity';
 import { addToTournamentHistory } from './lib/tournamentHistory';
 import { useTournamentData } from './hooks/useTournamentData';
 import { useMatchActions } from './hooks/useMatchActions';
@@ -18,6 +25,7 @@ import ThemeToggle from './components/ThemeToggle';
 import { Loader2 } from 'lucide-react';
 
 const DrawAnimation = lazy(() => import('./components/DrawAnimation'));
+const FinalRevealScreen = lazy(() => import('./components/FinalRevealScreen'));
 const WinnerScreen = lazy(() => import('./components/WinnerScreen'));
 
 function App() {
@@ -55,36 +63,74 @@ function App() {
     const hash = window.location.hash.replace('#', '');
     if (!hash || hash.length <= 10) return;
 
-    const saved = sessionStorage.getItem('tournament_user');
+    const saved = getParticipantIdentity(hash);
     if (saved) {
-      try {
-        const { tournamentId: savedId, name } = JSON.parse(saved);
-        if (savedId === hash) {
-          setCurrentUser(name);
-          setState({ screen: 'lobby', tournamentId: hash });
-          return;
-        }
-      } catch { /* ignorar */ }
+      setCurrentUser(saved.name);
+      setState({ screen: 'lobby', tournamentId: hash });
+      return;
     }
     setState({ screen: 'identify', tournamentId: hash });
   }, []);
 
-  // Comprobar si algún partido ha terminado su tiempo
+  const advancingRef = useRef<Set<string>>(new Set());
+
+  // Comprobar si algún partido ha terminado su tiempo (al cambiar matches)
   useEffect(() => {
     matches.forEach(async (match) => {
       if (match.status === 'voting' && match.voting_ends_at) {
         const endTime = new Date(match.voting_ends_at).getTime();
         if (Date.now() >= endTime && !match.winner_name) {
-          await completeMatch(match.id);
+          try {
+            await completeMatch(match.id);
+          } catch (err) {
+            toast.error('Error al completar el partido. Inténtalo de nuevo.');
+          }
         }
       }
       if (TIEBREAKER_PHASES.includes(match.status as typeof TIEBREAKER_PHASES[number]) && match.voting_ends_at) {
         const endTime = new Date(match.voting_ends_at).getTime();
-        if (Date.now() >= endTime) {
-          await advanceTiebreakerPhase(match.id);
+        if (Date.now() >= endTime && !advancingRef.current.has(match.id)) {
+          advancingRef.current.add(match.id);
+          try {
+            await advanceTiebreakerPhase(match.id);
+          } catch (err) {
+            toast.error('Error al avanzar. Inténtalo de nuevo.');
+          } finally {
+            advancingRef.current.delete(match.id);
+          }
         }
       }
     });
+  }, [matches, completeMatch, advanceTiebreakerPhase]);
+
+  // Comprobar periódicamente si el tiempo expiró (evita quedarse bloqueado si matches no se actualiza)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      matches.forEach(async (match) => {
+        if (match.status === 'voting' && match.voting_ends_at) {
+          const endTime = new Date(match.voting_ends_at).getTime();
+          if (Date.now() >= endTime && !match.winner_name) {
+            try {
+              await completeMatch(match.id);
+            } catch {
+              /* ignorar en polling */
+            }
+          }
+        }
+        if (TIEBREAKER_PHASES.includes(match.status as typeof TIEBREAKER_PHASES[number]) && match.voting_ends_at) {
+          const endTime = new Date(match.voting_ends_at).getTime();
+          if (Date.now() >= endTime && !advancingRef.current.has(match.id)) {
+            advancingRef.current.add(match.id);
+            try {
+              await advanceTiebreakerPhase(match.id);
+            } catch {
+              advancingRef.current.delete(match.id);
+            }
+          }
+        }
+      });
+    }, 3000);
+    return () => clearInterval(interval);
   }, [matches, completeMatch, advanceTiebreakerPhase]);
 
   const handleCreateLobby = async (participants: string[], currentUserForMobile?: string, tournamentName?: string) => {
@@ -93,9 +139,15 @@ function App() {
       addToTournamentHistory(result.tournamentId, tournamentName || 'Torneo');
       window.location.hash = result.tournamentId;
       if (currentUserForMobile) {
-        setCurrentUser(currentUserForMobile);
-        sessionStorage.setItem('tournament_user', JSON.stringify({ tournamentId: result.tournamentId, name: currentUserForMobile }));
         const botNames = participants.filter(p => p !== currentUserForMobile);
+        try {
+          await claimSoloIdentity(result.tournamentId, currentUserForMobile, botNames);
+        } catch (error) {
+          console.error('Error reclamando identidades del modo solo:', error);
+          toast.error('No se pudo asegurar la identidad de los participantes del modo solo.');
+          return;
+        }
+        setCurrentUser(currentUserForMobile);
         setSoloModeBots(result.tournamentId, botNames);
         setState({ screen: 'lobby', tournamentId: result.tournamentId });
         loadTournamentData(result.tournamentId);
@@ -112,20 +164,39 @@ function App() {
     }
   };
 
-  const handleIdentify = (name: string, tid: string) => {
+  const handleIdentify = (name: string, tid: string, token: string) => {
     setCurrentUser(name);
-    sessionStorage.setItem('tournament_user', JSON.stringify({ tournamentId: tid, name }));
+    saveParticipantIdentity({ tournamentId: tid, name, token });
     setState({ screen: 'lobby', tournamentId: tid });
     loadTournamentData(tid);
   };
 
   const handleStartMatch = async (match: Match) => {
+    if (match.round === 'final') {
+      setState({
+        screen: 'finalReveal',
+        tournamentId: match.tournament_id,
+        matchId: match.id,
+        nextScreen: 'match',
+        pendingStart: true,
+      });
+      return;
+    }
     await startMatch(match);
     setState({ screen: 'match', tournamentId: match.tournament_id, matchId: match.id });
   };
 
   const handleMatchClick = (match: Match) => {
     if (match.status === 'pending') return;
+    if (match.round === 'final' && (match.status === 'proposing' || match.status === 'voting')) {
+      setState({
+        screen: 'finalReveal',
+        tournamentId: match.tournament_id,
+        matchId: match.id,
+        nextScreen: match.status === 'proposing' ? 'match' : 'voting',
+      });
+      return;
+    }
     if (match.status === 'proposing') {
       setState({ screen: 'match', tournamentId: match.tournament_id, matchId: match.id });
     } else if (match.status === 'voting' || match.status === 'completed') {
@@ -136,10 +207,28 @@ function App() {
   const handleNewTournament = () => {
     resetData();
     setCurrentUser(null);
-    sessionStorage.removeItem('tournament_user');
+    clearParticipantIdentity();
     window.location.hash = '';
     setState({ screen: 'setup' });
   };
+
+  const handleFinalRevealComplete = useCallback(async () => {
+    if (state.screen !== 'finalReveal') return;
+    const { tournamentId: tid, matchId: mid, nextScreen, pendingStart } = state;
+    if (nextScreen === 'voting') {
+      setState({ screen: 'voting', tournamentId: tid, matchId: mid });
+      return;
+    }
+    if (nextScreen === 'match') {
+      if (pendingStart) {
+        const m = matches.find(x => x.id === mid);
+        if (m) {
+          await startMatch(m);
+        }
+      }
+      setState({ screen: 'match', tournamentId: tid, matchId: mid });
+    }
+  }, [state, matches, startMatch]);
 
   const renderScreen = () => {
     if (state.screen === 'setup') {
@@ -197,6 +286,18 @@ function App() {
       );
     }
 
+    if (state.screen === 'finalReveal') {
+      const finalMatch = matches.find(m => m.id === state.matchId);
+      if (!finalMatch) return null;
+      return (
+        <FinalRevealScreen
+          player1Name={finalMatch.player1_name}
+          player2Name={finalMatch.player2_name ?? 'Por definir'}
+          onComplete={handleFinalRevealComplete}
+        />
+      );
+    }
+
     if (state.screen === 'match' && tournament) {
       const match = matches.find(m => m.id === state.matchId);
       if (!match) return null;
@@ -248,7 +349,14 @@ function App() {
           votes={matchVotes}
           participants={tournament.participants}
           currentUser={currentUser}
-          onAdvancePhase={() => advanceTiebreakerPhase(match.id)}
+          onAdvancePhase={async () => {
+            try {
+              await advanceTiebreakerPhase(match.id);
+            } catch (err) {
+              toast.error('Error al resolver. Inténtalo de nuevo.');
+              throw err;
+            }
+          }}
           onVote={(proposalId) => {
             if (currentUser) handleTiebreakerVote(match.id, currentUser, proposalId);
           }}

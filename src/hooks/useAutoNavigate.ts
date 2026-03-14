@@ -7,6 +7,7 @@ export type AppState =
   | { screen: 'lobby'; tournamentId: string }
   | { screen: 'draw'; participants: string[]; tournamentId: string }
   | { screen: 'bracket'; tournamentId: string }
+  | { screen: 'finalReveal'; tournamentId: string; matchId: string; nextScreen: 'voting' | 'match'; pendingStart?: boolean }
   | { screen: 'match'; tournamentId: string; matchId: string }
   | { screen: 'voting'; tournamentId: string; matchId: string }
   | { screen: 'tiebreak'; tournamentId: string; matchId: string }
@@ -61,7 +62,13 @@ export function useAutoNavigate(
         currentState.screen !== 'voting' ||
         (currentState.screen === 'voting' && currentState.matchId !== votingMatch.id)
       ) {
-        setState({ screen: 'voting', tournamentId, matchId: votingMatch.id });
+        if (votingMatch.round === 'final') {
+          if (currentState.screen !== 'finalReveal' || currentState.matchId !== votingMatch.id) {
+            setState({ screen: 'finalReveal', tournamentId, matchId: votingMatch.id, nextScreen: 'voting' });
+          }
+        } else {
+          setState({ screen: 'voting', tournamentId, matchId: votingMatch.id });
+        }
       }
       return;
     }
@@ -72,7 +79,13 @@ export function useAutoNavigate(
         currentState.screen !== 'match' ||
         (currentState.screen === 'match' && currentState.matchId !== proposingMatch.id)
       ) {
-        setState({ screen: 'match', tournamentId, matchId: proposingMatch.id });
+        if (proposingMatch.round === 'final') {
+          if (currentState.screen !== 'finalReveal' || currentState.matchId !== proposingMatch.id) {
+            setState({ screen: 'finalReveal', tournamentId, matchId: proposingMatch.id, nextScreen: 'match' });
+          }
+        } else {
+          setState({ screen: 'match', tournamentId, matchId: proposingMatch.id });
+        }
       }
       return;
     }
