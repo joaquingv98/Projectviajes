@@ -400,10 +400,16 @@ function App() {
           currentUser={currentUser}
           tournamentId={tournament.id}
           tournamentName={tournament.name}
+          tournamentStatus={tournament.status}
           onMatchClick={handleMatchClick}
           onStartMatch={handleStartMatch}
           onAddVoters={addVotersToTournament}
           recentWinner={recentWinner}
+          onViewWinner={
+            tournament.status === 'completed' && tournament.winner_proposal_id
+              ? () => setState({ screen: 'winner', winningProposalId: tournament.winner_proposal_id!, tournamentId: tournament.id })
+              : undefined
+          }
         />
       );
     }
@@ -497,6 +503,7 @@ function App() {
           participants={tournament?.participants ?? []}
           tournamentName={tournament?.name}
           onNewTournament={handleNewTournament}
+          onViewBracket={() => setState({ screen: 'bracket', tournamentId: state.tournamentId })}
         />
       );
     }

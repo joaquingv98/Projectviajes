@@ -97,6 +97,8 @@ export default function TiebreakerScreen({
   if (phase === 'tiebreak_d1' || phase === 'tiebreak_d2') {
     const defendingPlayer = phase === 'tiebreak_d1' ? p1 : p2;
     const isMyTurn = currentUser === defendingPlayer;
+    const isSoloMatch = isBot(p1, match.tournament_id) || isBot(p2, match.tournament_id);
+    const showSkipButton = isMyTurn || isSoloMatch;
 
     return (
       <div className="min-h-screen p-6">
@@ -105,7 +107,7 @@ export default function TiebreakerScreen({
             <button type="button" onClick={onBack} aria-label="Volver al cuadro del torneo" className="text-blue-300 hover:text-white transition-colors">
               ← Volver al cuadro
             </button>
-            {isMyTurn && (
+            {showSkipButton && (
               <button
                 type="button"
                 onClick={onAdvancePhase}

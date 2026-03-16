@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Proposal } from '../lib/supabase';
-import { Trophy, ExternalLink, Plane, Calendar, DollarSign, Share2 } from 'lucide-react';
+import { Trophy, ExternalLink, Plane, Calendar, DollarSign, Share2, LayoutGrid } from 'lucide-react';
 
 interface WinnerScreenProps {
   winningProposal: Proposal;
   participants: string[];
   tournamentName?: string;
   onNewTournament: () => void;
+  onViewBracket?: () => void;
 }
 
-export default function WinnerScreen({ winningProposal, tournamentName, onNewTournament }: WinnerScreenProps) {
+export default function WinnerScreen({ winningProposal, tournamentName, onNewTournament, onViewBracket }: WinnerScreenProps) {
   const [shared, setShared] = useState(false);
 
   const handleShareResult = () => {
@@ -95,6 +96,18 @@ export default function WinnerScreen({ winningProposal, tournamentName, onNewTou
           <Share2 className="w-5 h-5" />
           {shared ? '¡Copiado!' : 'Compartir resultado'}
         </button>
+
+        {onViewBracket && (
+          <button
+            type="button"
+            onClick={onViewBracket}
+            aria-label="Ver cuadro del torneo"
+            className="w-full py-4 text-lg mb-4 flex items-center justify-center gap-2 rounded-xl font-semibold bg-white/10 hover:bg-white/15 border border-white/20 text-white transition-all"
+          >
+            <LayoutGrid className="w-5 h-5" />
+            Ver cuadro
+          </button>
+        )}
 
         <button
           type="button"

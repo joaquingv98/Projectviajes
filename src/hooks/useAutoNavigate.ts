@@ -126,5 +126,5 @@ export function useAutoNavigate(
         setState({ screen: 'bracket', tournamentId });
       }
     }
-  }, [setState, setRecentWinner]);
+  }, [setState, setRecentWinner, onBroadcastView]);
 }

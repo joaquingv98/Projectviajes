@@ -12,7 +12,6 @@ interface UserIdentificationProps {
 
 export default function UserIdentification({ tournamentId, onIdentify }: UserIdentificationProps) {
   const [voters, setVoters] = useState<string[]>([]);
-  const [competitors, setCompetitors] = useState<string[]>([]);
   const [takenNames, setTakenNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState<string | null>(null);
@@ -20,6 +19,12 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
+    if (!tournamentId || tournamentId.length < 10) {
+      setError('Enlace inválido. Comprueba que copiaste el código completo.');
+      setLoading(false);
+      return;
+    }
+
     // Cargar participantes del torneo
     const load = async () => {
       const { data, error } = await supabase
@@ -32,7 +37,6 @@ export default function UserIdentification({ tournamentId, onIdentify }: UserIde
         console.error('Error cargando torneo:', error, 'ID:', tournamentId);
         setError('No se encontró el torneo. Asegúrate de haber copiado el enlace completo.');
       } else {
-        setCompetitors(data.participants ?? []);
         setVoters(dedupeNames(data.voters?.length ? data.voters : data.participants ?? []));
       }
       setLoading(false);

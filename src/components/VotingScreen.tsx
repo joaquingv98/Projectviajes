@@ -184,7 +184,17 @@ export default function VotingScreen({
 
         {/* Encabezado */}
         <div className={`text-center ${isMobile ? 'mb-4' : 'mb-8'}`}>
-          {everyoneVoted ? (
+          {match.status === 'completed' ? (
+            <div className="inline-flex items-center justify-center gap-3 bg-emerald-500/10 backdrop-blur-sm rounded-2xl px-8 py-4 border border-emerald-400/40 mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-400" />
+              <div>
+                <div className="text-sm text-green-300 mb-1">Resultado del partido</div>
+                <div className="text-2xl font-bold text-green-400">
+                  Ganador: {match.winner_name ?? (player1Votes >= player2Votes ? match.player1_name : match.player2_name)} 🏆
+                </div>
+              </div>
+            </div>
+          ) : everyoneVoted ? (
             <div className="inline-flex items-center justify-center gap-3 bg-emerald-500/10 backdrop-blur-sm rounded-2xl px-8 py-4 border border-emerald-400/40 mb-4 animate-pulse">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
               <div>
@@ -208,7 +218,9 @@ export default function VotingScreen({
             {match.player1_name} vs {match.player2_name}
           </h1>
           <p className="text-slate-300/90">
-            {everyoneVoted
+            {match.status === 'completed'
+              ? `Votación final: ${player1Votes} - ${player2Votes} votos`
+              : everyoneVoted
               ? `Ganador: ${player1Votes >= player2Votes ? match.player1_name : match.player2_name} 🏆`
               : !myConfirmedVote
               ? '¡Selecciona tu viaje favorito y confirma tu voto!'

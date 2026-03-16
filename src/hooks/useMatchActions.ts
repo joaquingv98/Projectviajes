@@ -108,7 +108,8 @@ export function useMatchActions(tournament: Tournament | null) {
       .select('status').eq('tournament_id', tournamentId).eq('round', completedMatch.round);
     const allRoundComplete = roundMatches?.every(m => m.status === 'completed') ?? false;
 
-    if (allRoundComplete) {
+    // No auto-iniciar la final: el usuario debe pulsar "Comenzar" para ver la animación de la final
+    if (allRoundComplete && nextRound !== 'final') {
       const { data: nextRoundMatches } = await supabase.from('matches')
         .select('id, player1_name, player2_name, status')
         .eq('tournament_id', tournamentId).eq('round', nextRound);

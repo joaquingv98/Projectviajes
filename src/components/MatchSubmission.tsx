@@ -210,14 +210,16 @@ function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerProps) {
           {label || 'Selecciona las fechas del viaje'}
         </span>
         {(dateFrom || dateTo) && (
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); onChange('', ''); }}
+          <span
+            role="button"
+            tabIndex={0}
             aria-label="Borrar fechas seleccionadas"
-            className="ml-auto text-white/40 hover:text-white text-lg leading-none"
+            onClick={e => { e.stopPropagation(); onChange('', ''); }}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange('', ''); } }}
+            className="ml-auto text-white/40 hover:text-white text-lg leading-none cursor-pointer"
           >
             ×
-          </button>
+          </span>
         )}
       </button>
 

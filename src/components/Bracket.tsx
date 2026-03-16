@@ -4,6 +4,21 @@ import { Match, Proposal, Vote as VoteType, TIEBREAKER_PHASES } from '../lib/sup
 import { Trophy, Clock, CheckCircle, Vote, Play, Eye, Flame, UserPlus, Copy, Check } from 'lucide-react';
 import { isMobileDevice } from '../lib/mobile';
 const ROUND_ORDER: Record<string, number> = { quarterfinals: 1, semifinals: 2, final: 3 };
+const ROUNDS_BY_INDEX = ['quarterfinals', 'semifinals', 'final'] as const;
+
+/** Solo es válido jugar un partido de la ronda R si todas las rondas anteriores (que existan en el torneo) están 100% completadas. */
+function previousRoundsComplete(matches: Match[], round: string): boolean {
+  const roundOrder = ROUND_ORDER[round];
+  if (roundOrder == null || roundOrder <= 1) return true;
+  const roundsThatMustBeComplete = ROUNDS_BY_INDEX.filter(r => ROUND_ORDER[r] < roundOrder);
+  for (const r of roundsThatMustBeComplete) {
+    const roundMatches = matches.filter(m => m.round === r);
+    if (roundMatches.length === 0) continue;
+    const allComplete = roundMatches.every(m => m.status === 'completed');
+    if (!allComplete) return false;
+  }
+  return true;
+}
 
 interface BracketProps {
   matches: Match[];
@@ -13,10 +28,12 @@ interface BracketProps {
   currentUser: string | null;
   tournamentId: string;
   tournamentName?: string;
+  tournamentStatus?: string;
   onMatchClick: (match: Match) => void;
   onStartMatch: (match: Match) => void;
   onAddVoters: (names: string[]) => Promise<{ added: number; total: number }>;
   recentWinner?: { name: string; round: string } | null;
+  onViewWinner?: () => void;
 }
 
 function getMatchResult(match: Match, proposals: Proposal[], votes: VoteType[]): string | null {
@@ -43,13 +60,16 @@ function Bracket({
   currentUser,
   tournamentId,
   tournamentName,
+  tournamentStatus,
   onMatchClick,
   onStartMatch,
-  onAddVoters: _onAddVoters,
+  onAddVoters,
   recentWinner,
+  onViewWinner,
 }: BracketProps) {
   void tournamentId; // prop de API; uso futuro
   void tournamentSize; // el layout se adapta a las rondas existentes
+  void onAddVoters; // usado por el modal "Añadir amigos" vía enlace; callback para futura integración
   const [starting, setStarting] = useState(false);
 
   const [advanceNotif, setAdvanceNotif] = useState<{ name: string; toRound: string } | null>(null);
@@ -114,7 +134,13 @@ function Bracket({
   const nextMatch = useMemo(() => {
     if (hasActiveMatch) return undefined;
     return matches
-      .filter(m => m.status === 'pending' && m.player1_name !== 'TBD' && m.player2_name && m.player2_name !== 'TBD')
+      .filter(m =>
+        m.status === 'pending' &&
+        m.player1_name !== 'TBD' &&
+        m.player2_name != null &&
+        m.player2_name !== 'TBD' &&
+        previousRoundsComplete(matches, m.round)
+      )
       .sort((a, b) => (ROUND_ORDER[a.round] - ROUND_ORDER[b.round]) || (a.match_number - b.match_number))[0];
   }, [matches, hasActiveMatch]);
 
@@ -342,7 +368,12 @@ function Bracket({
         <h1 style={{ fontSize: 'clamp(28px, 6vw, 48px)', fontWeight: 800, color: 'white', marginBottom: 8, letterSpacing: 1 }}>
           {tournamentName && tournamentName !== 'Travel Tournament' ? tournamentName : 'Cuadro del Torneo'}
         </h1>
-        {currentUser && (
+        {tournamentStatus === 'completed' && (
+          <p style={{ fontSize: 16, color: '#94a3b8', marginBottom: 12 }}>
+            Torneo finalizado — toca un partido para ver votaciones y resultado
+          </p>
+        )}
+        {currentUser && tournamentStatus !== 'completed' && (
           <p style={{ fontSize: 18, color: '#93c5fd', marginBottom: 16 }}>
             Jugando como: <span style={{ color: '#facc15', fontWeight: 700 }}>{currentUser}</span>
           </p>
@@ -423,15 +454,29 @@ function Bracket({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowAddVoters(true)}
-            aria-label="Anadir amigos para las votaciones"
-            style={getActionButtonStyle('ghost')}
-          >
-            <UserPlus style={{ width: 18, height: 18 }} />
-            Anadir amigos para votar
-          </button>
+          {tournamentStatus === 'completed' && onViewWinner && (
+            <button
+              type="button"
+              onClick={onViewWinner}
+              aria-label="Ver ganador del torneo"
+              style={getActionButtonStyle('gold')}
+            >
+              <Trophy style={{ width: 18, height: 18 }} />
+              Ver ganador
+            </button>
+          )}
+
+          {tournamentStatus !== 'completed' && (
+            <button
+              type="button"
+              onClick={() => setShowAddVoters(true)}
+              aria-label="Anadir amigos para las votaciones"
+              style={getActionButtonStyle('ghost')}
+            >
+              <UserPlus style={{ width: 18, height: 18 }} />
+              Anadir amigos para votar
+            </button>
+          )}
         </div>
       </div>
 

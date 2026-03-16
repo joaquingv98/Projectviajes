@@ -27,8 +27,11 @@ export function useTournamentData(
   const [matches, setMatches] = useState<Match[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
+  const previousTournamentStatusRef = useRef<string | null>(null);
 
   const loadTournamentData = useCallback(async (tid: string) => {
+    if (!tid || tid.length < 10) return;
+
     const { data: tournamentData } = await supabase
       .from('tournaments').select('*').eq('id', tid).maybeSingle();
 
@@ -58,8 +61,15 @@ export function useTournamentData(
       if (voteData) setVotes(voteData);
     }
 
+    // Solo notificar ganador cuando el torneo pasa a completado (no al recargar ya completado)
     if (tournamentData?.status === 'completed' && tournamentData.winner_proposal_id && onTournamentCompleted) {
-      onTournamentCompleted(tournamentData.winner_proposal_id, tid);
+      const prev = previousTournamentStatusRef.current;
+      if (prev !== 'completed') {
+        onTournamentCompleted(tournamentData.winner_proposal_id, tid);
+      }
+      previousTournamentStatusRef.current = 'completed';
+    } else if (tournamentData?.status) {
+      previousTournamentStatusRef.current = tournamentData.status;
     }
   }, [onDataLoaded, onTournamentCompleted]);
 
